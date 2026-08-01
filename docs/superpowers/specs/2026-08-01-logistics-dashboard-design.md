@@ -198,6 +198,37 @@ Favorit Extended". Dark slim sidebar + light content area, white KPI cards with
 colored icon badges, status dot/badge colors reused identically across the data
 table and the charts (one visual language, not two).
 
+### Design tokens
+
+Grounded in the `emil-design-eng` and `apple-design` skills, not vibes:
+
+- **Color**: accent `#17F082` used sparingly (primary CTA on Ask AI, active-nav
+  indicator, "delivered" status) — neutrals (`#0A0A0A`/`#F8F8F8`/`#FFFFFF`) cover
+  ~90% of the surface. Status ramp reused identically across table badges and chart
+  series: canceled `#A3A3A3`, in_transit `#3B82F6`, delivered `#17F082`, delayed
+  `#F59E0B`, exception `#EF4444`.
+- **Elevation**: soft shadow, not a hard border, for card edges —
+  `0 1px 2px rgba(0,0,0,.04), 0 1px 8px rgba(0,0,0,.04)`. Emil's skill names "solid
+  border instead of semi-transparent shadow" explicitly as a bad-taste tell.
+- **Radius scale**: 6px (badges/chips), 10px (buttons/inputs), 16px (cards) — three
+  tiers, applied consistently, not ad hoc.
+- **Spacing**: Tailwind's default 4px grid; card padding ≥24px; 32–48px between page
+  sections.
+- **Typography**: Inter. KPI numbers 36px/700, tracking **-0.02em** (negative — large
+  display text per apple-design's optical-sizing rule); card labels 12px uppercase,
+  tracking **+0.05em** (positive — small text needs the opposite direction, not one
+  fixed letter-spacing value for everything).
+- **Motion**: buttons `scale(0.97)` on `:active`, 160ms custom ease-out
+  (`cubic-bezier(0.23,1,0.32,1)`). KPI/chart stagger fade-in (30-80ms apart) only on
+  first page load — NOT on every filter change, since filtering is a frequent action
+  and Emil's frequency table says reduce/remove animation on anything done "tens of
+  times a day." Popovers (date-range picker) scale from their trigger origin, not
+  center.
+
+Once built, verify these visually (screenshot the running app) before calling the UI
+done — token choices get the framework right, but "premium" is ~50% execution
+consistency that's only checkable once real.
+
 ### Information architecture — 2 pages
 
 **1. Dashboard (`/`)** — descriptive analytics, no LLM call at all:
