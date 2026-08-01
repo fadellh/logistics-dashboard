@@ -15,6 +15,8 @@ recommendation).
 
 ## Setup
 
+### Local Setup Instructions
+
 **Requirements**: Node 20+, a Neon Postgres database, a DeepSeek API key.
 
 ```bash
@@ -27,7 +29,7 @@ npm run seed                # load mock_logistics_data.csv into the DB
 npm run dev                 # http://localhost:3000
 ```
 
-### Environment variables
+### Environment Variables
 
 | Variable | Description |
 |---|---|
@@ -40,19 +42,11 @@ No secrets are committed; `.env` is gitignored.
 
 ## Architecture
 
+### System Overview
+
 **Stack**: Next.js (App Router, TypeScript) as a single monolith deployed to Vercel
 — Postgres via Neon, accessed through Drizzle ORM — DeepSeek (OpenAI-SDK-compatible)
 for the AI layer — Recharts for charts.
-
-**Why Postgres over an in-memory array** for a 400-row dataset: it's the most direct
-demonstration of the spec's "prefer structured query generation over raw
-AI-generated SQL" guideline. The AI never touches SQL — it emits structured JSON
-tool arguments, which the backend maps to a small allowlist of parameterized
-Drizzle queries. An in-memory array would have sidestepped that requirement rather
-than satisfied it.
-
-**Why DeepSeek**: OpenAI-SDK-compatible (drop-in), inexpensive enough that the
-public demo doesn't accumulate real API cost, and has reliable tool-calling.
 
 **Code structure** — three explicitly separate layers, matching the spec's literal
 architecture requirement ("clearly separate AI interpretation, data computation, and
@@ -69,18 +63,49 @@ lib/
   format/       # chart-type selection, answer templates, metric display names
 ```
 
-No DDD, no Hexagonal/ports-and-adapters — see the design doc for why those patterns
-don't earn their cost at this scale (one flat read-only table, one database, one LLM
-provider swap point that's already a one-line config change).
+### Key Design Decisions
 
-**Data flow**: `User question → AI interpretation → tool selection → structured
-args → computation (Postgres) → result → templated explanation → visualization` —
-this mirrors the spec's own expected system flow exactly. The Dashboard follows the
-same computation path minus the AI step (it calls the query functions directly; no
-LLM round-trip for a page that's just rendering KPIs/charts against a date-range
-filter).
+- **Postgres over an in-memory array**, despite only 400 rows: it's the most direct
+  demonstration of the spec's "prefer structured query generation over raw
+  AI-generated SQL" guideline. The AI never touches SQL — it emits structured JSON
+  tool arguments, which the backend maps to a small allowlist of parameterized
+  Drizzle queries. An in-memory array would have sidestepped that requirement rather
+  than satisfied it.
+- **DeepSeek** for the AI layer: OpenAI-SDK-compatible (drop-in), inexpensive enough
+  that the public demo doesn't accumulate real API cost, reliable tool-calling.
+- **No DDD, no Hexagonal/ports-and-adapters.** Those patterns earn their cost with a
+  complex domain model or multiple swappable infrastructure implementations —
+  neither applies here (one flat read-only table, one database, one LLM provider
+  swap point that's already a one-line config change). Plain folder-level separation
+  satisfies the spec's actual requirement at zero ceremony cost.
+- **Three atomic tools, not one tool with a mode-switch parameter.** An earlier
+  draft added an optional `compareTo` parameter to the query tool instead of a
+  separate comparison tool. Reversed after checking tool-design benchmarks:
+  monolithic tools whose behavior branches on a parameter measurably hurt
+  tool-selection accuracy (15-30% worse in cited benchmarks) versus atomic tools
+  with disambiguating descriptions. See `compare_metric` below.
+- **Answers are templated, not phrased by a second model call.** The model's only
+  job is choosing a tool and filling its arguments; the sentence shown to the user
+  is assembled by deterministic string templates from the computed result. This
+  removes an entire failure mode — a second LLM call misstating a number while
+  "explaining" it — at the cost of slightly more rigid phrasing, an acceptable
+  trade given Data Correctness is one of the two highest-weighted evaluation
+  categories.
+
+### Data Flow
+
+```
+User question → AI interpretation → tool selection → structured args
+  → computation (Postgres) → result → templated explanation → visualization
+```
+
+This mirrors the spec's own expected system flow. The Dashboard follows the same
+computation path minus the AI step — it calls the query functions directly, no LLM
+round-trip for a page that's just rendering KPIs/charts against a date-range filter.
 
 ## AI Approach
+
+### How Questions Are Interpreted
 
 **Pattern**: Anthropic's "Routing" workflow (Schluntz & Zhang, Dec 2024) — a
 classifier LLM call picks one of a fixed, small set of tools; the code, not the
@@ -88,22 +113,11 @@ model, owns the execution graph. Chosen over an open-ended agent loop because th
 supported question grammar is fully enumerable and the evaluation explicitly rewards
 auditable, predictable behavior over flexibility.
 
-**How questions are interpreted**: one DeepSeek call per question, with three tool
-schemas available (`tool_choice: auto`). The model either calls a tool with
-structured arguments, or responds in plain text directly — the latter is how it
-declines out-of-scope questions or asks a clarifying one, since a decline isn't a
-data claim and doesn't need computation behind it.
-
-**How tools are selected** — three atomic tools, each with a disambiguating
-description ("Use when X. Do not use for Y.") rather than one tool with a mode
-switch, because monolithic tools with an internal `action` argument measurably hurt
-tool-selection accuracy:
-
-| Tool | Used for |
-|---|---|
-| `query_analytics` | Aggregations, breakdowns, KPI-style questions — "show delayed orders by week", "which carrier has the highest delay rate" |
-| `forecast_demand` | Demand prediction — historical monthly aggregation, closed-form (least-squares) linear trend, forward projection, inventory recommendation |
-| `compare_metric` | Deviation-from-baseline questions — "why does DHL's delay rate look high this month" — runs the *same* aggregation twice (current scope vs. a baseline) and reports the delta as a fact, not a claimed cause |
+One DeepSeek call per question, with three tool schemas available (`tool_choice:
+auto`). The model either calls a tool with structured arguments, or responds in
+plain text directly — the latter is how it declines out-of-scope questions or asks
+a clarifying one, since a decline isn't a data claim and doesn't need computation
+behind it.
 
 **Explainability**: every response returns the filters applied, the metric/dimension
 used, the exact tool-call arguments (the query plan), and the underlying data table
@@ -114,13 +128,16 @@ summary second, and the raw tool-call JSON third (collapsed, for technical
 reviewers) — a business user is never shown `metric: delay_rate` as their first
 encounter with the answer.
 
-**Answers are templated, not phrased by a second model call.** The model's only job
-is choosing a tool and filling its arguments; the sentence shown to the user is
-assembled by a small set of deterministic string templates from the computed
-result. This removes an entire failure mode (a second LLM call misstating a number
-while "explaining" it) at the cost of slightly less conversational phrasing — an
-acceptable trade given the supported question grammar is small and Data Correctness
-is one of the two highest-weighted evaluation categories.
+### How Tools Are Selected
+
+Three atomic tools, each with a disambiguating description ("Use when X. Do not use
+for Y.") so the model reliably picks the right one:
+
+| Tool | Used for |
+|---|---|
+| `query_analytics` | Aggregations, breakdowns, KPI-style questions — "show delayed orders by week", "which carrier has the highest delay rate" |
+| `forecast_demand` | Demand prediction — historical monthly aggregation, closed-form (least-squares) linear trend, forward projection, inventory recommendation |
+| `compare_metric` | Deviation-from-baseline questions — "why does DHL's delay rate look high this month" — runs the *same* aggregation twice (current scope vs. a baseline) and reports the delta as a fact, not a claimed cause |
 
 **Safety rules applied** (from function-calling best practice): no AI-generated SQL
 ever reaches the database; every tool argument is Zod-validated before execution;
@@ -128,7 +145,9 @@ invalid arguments return a structured error the model can self-correct from, rat
 than an exception; tool-call round-trips are capped per question to prevent a
 runaway loop.
 
-## Assumptions, Simplifications & Limitations
+## Assumptions
+
+### Simplifications Made
 
 - **"Delayed" = `status = 'delayed'`.** The dataset has no separate SLA/promised-date
   field to diff against, so the status column is treated as ground truth for delay.
@@ -138,31 +157,40 @@ runaway loop.
   delivery occurred).
 - **Average delivery time** = mean of `delivery_date − order_date` over rows with a
   non-null delivery date.
+- **Conversational memory is session-scoped**, not persisted across page reloads or
+  browser sessions. Follow-up questions in the same session carry context; a fresh
+  page load starts clean. The spec's optional "query history" bonus (a persistent,
+  revisitable log across sessions) is not implemented.
+- **No authentication** — acceptable per the spec ("if authentication is used,
+  provide test credentials") — this is a read-only public demo with no user data to
+  protect.
+
+### Limitations
+
 - **"Diagnostic — explaining why" is scoped to deviation-from-baseline, not causal
   explanation.** The dataset has no incident/reason field, no weather or
   route-condition data — nothing that would let a genuine root cause be computed
   rather than guessed. `compare_metric` answers "is this actually unusual, and by
   how much" with two real numbers; it does not attempt to explain *why* a number
-  moved. A question asking for a specific cause is declined explicitly rather than
-  answered with a plausible-sounding guess.
+  moved.
 - **No statistical significance / anomaly-detection claims.** With 400 rows split
   across, e.g., 9 carriers × 12 months, the average bucket has ~3-4 orders — too few
   for a z-score or IQR-based "this is anomalous" claim to be reliable. Rather than
   produce noise dressed as a finding, `compare_metric` reports plain deltas without
   a significance judgment.
-- **Conversational memory is session-scoped**, not persisted across page reloads or
-  browser sessions. Follow-up questions in the same session carry context; a fresh
-  page load starts clean. The spec's optional "query history" bonus (a persistent,
-  revisitable log across sessions) is not implemented.
-- **No authentication.** Acceptable per the spec ("if authentication is used,
-  provide test credentials") — this is a read-only public demo with no user data to
-  protect.
-- **Unsupported queries**: anything requiring data not in the dataset (e.g. profit
-  margin — no cost data exists, only sale price), genuine causal "why" questions,
-  and multi-category "forecast everything" requests (forecasting is scoped to one
-  SKU or one product category at a time, matching the spec's own example).
+
+### Unsupported Features or Queries
+
+- Questions requiring data not in the dataset — e.g. profit margin (no cost data
+  exists, only sale price).
+- Genuine causal "why" questions ("what caused this delay") — declined explicitly
+  rather than answered with a plausible-sounding guess; see Limitations above.
+- Multi-category "forecast everything" requests — forecasting is scoped to one SKU
+  or one product category at a time, matching the spec's own example.
 
 ## Future Improvements
+
+### What You Would Build Next
 
 - Anomaly/outlier detection once enough historical data exists per segment for a
   z-score or IQR approach to be statistically meaningful.
