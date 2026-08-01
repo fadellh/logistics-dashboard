@@ -6,8 +6,8 @@ diagnostic analytics (natural-language questions, including deviation-from-basel
 "why" questions), and predictive analytics (demand forecasting with an inventory
 recommendation).
 
-- **Live app**: _\<deployed Vercel URL\>_
-- **Repository**: _\<repo URL\>_
+- **Live app**: https://logistics-dashboard-roan.vercel.app/
+- **Repository**: https://github.com/fadellh/logistics-dashboard
 
 > Design reasoning for every non-obvious decision in this document lives in
 > [`docs/superpowers/specs/2026-08-01-logistics-dashboard-design.md`](docs/superpowers/specs/2026-08-01-logistics-dashboard-design.md).
@@ -20,7 +20,7 @@ recommendation).
 **Requirements**: Node 20+, a Neon Postgres database, a DeepSeek API key.
 
 ```bash
-git clone <repo-url>
+git clone https://github.com/fadellh/logistics-dashboard
 cd logistics-dashboard
 npm install
 cp .env.example .env       # fill in DATABASE_URL and DEEPSEEK_API_KEY
