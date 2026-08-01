@@ -1,0 +1,23 @@
+"use client";
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { ExplainCaption } from "@/components/shared/ExplainCaption";
+import type { QueryResultRow } from "@/lib/queries/analytics";
+
+export function CarrierBreakdownChart({ data, filterLabel }: { data: QueryResultRow[]; filterLabel: string }) {
+  return (
+    <div className="card">
+      <div className="text-sm font-medium">Carrier Breakdown (delay rate)</div>
+      <div className="mt-4 h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart data={data.map((r) => ({ x: r.label, y: r.value }))} layout="vertical">
+            <XAxis type="number" tick={{ fontSize: 11 }} stroke="var(--color-text-muted)" />
+            <YAxis type="category" dataKey="x" tick={{ fontSize: 11 }} width={80} stroke="var(--color-text-muted)" />
+            <Tooltip />
+            <Bar dataKey="y" fill="var(--status-info)" radius={[0, 6, 6, 0]} />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
+      <ExplainCaption filterLabel={filterLabel} metricLabel="delay rate grouped by carrier" rows={data} />
+    </div>
+  );
+}
