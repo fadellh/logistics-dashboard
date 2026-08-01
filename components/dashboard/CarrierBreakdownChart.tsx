@@ -1,7 +1,9 @@
 "use client";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import type { TooltipValueType } from "recharts";
 import { ExplainCaption } from "@/components/shared/ExplainCaption";
 import type { QueryResultRow } from "@/lib/queries/analytics";
+import { formatMetricValue } from "@/lib/format/metricLabels";
 
 export function CarrierBreakdownChart({ data, filterLabel }: { data: QueryResultRow[]; filterLabel: string }) {
   return (
@@ -17,7 +19,7 @@ export function CarrierBreakdownChart({ data, filterLabel }: { data: QueryResult
               tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
             />
             <YAxis type="category" dataKey="x" tick={{ fontSize: 11 }} width={80} stroke="var(--color-text-muted)" />
-            <Tooltip />
+            <Tooltip formatter={(v: TooltipValueType | undefined) => formatMetricValue("delay_rate", Number(v))} />
             <Bar dataKey="y" fill="var(--status-info)" radius={[0, 6, 6, 0]} />
           </BarChart>
         </ResponsiveContainer>

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
-import type { Metric } from "../../lib/queries/schemas";
-import { formatMetricValue } from "../../lib/format/metricLabels";
+import type { Metric } from "@/lib/queries/schemas";
+import { formatMetricValue } from "@/lib/format/metricLabels";
 
 export function ExplainCaption({
   filterLabel,

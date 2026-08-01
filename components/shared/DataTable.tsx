@@ -1,5 +1,5 @@
-import type { Metric } from "../../lib/queries/schemas";
-import { formatMetricValue } from "../../lib/format/metricLabels";
+import type { Metric } from "@/lib/queries/schemas";
+import { formatMetricValue } from "@/lib/format/metricLabels";
 
 export function DataTable({
   rows,

@@ -1,9 +1,20 @@
 "use client";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Legend } from "recharts";
+import type { TooltipValueType } from "recharts";
 import type { ChartSpec } from "@/lib/format/chartSelect";
+import type { Metric } from "@/lib/queries/schemas";
+import { formatMetricValue } from "@/lib/format/metricLabels";
 
-export function ChartRenderer({ chart }: { chart: ChartSpec | null }) {
+const RATE_METRICS = new Set<string>(["on_time_rate", "delay_rate"]);
+
+export function ChartRenderer({ chart, metric }: { chart: ChartSpec | null; metric?: Metric | null }) {
   if (!chart || chart.kind === "stat") return null;
+
+  const rateMetric = metric && RATE_METRICS.has(metric) ? metric : undefined;
+  const tickFormatter = rateMetric ? (v: number) => formatMetricValue(rateMetric, v) : undefined;
+  const tooltipFormatter = rateMetric
+    ? (v: TooltipValueType | undefined) => formatMetricValue(rateMetric, Number(v))
+    : undefined;
 
   if (chart.kind === "line") {
     return (
@@ -11,8 +22,8 @@ export function ChartRenderer({ chart }: { chart: ChartSpec | null }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chart.points.map((p) => ({ x: p.x, y: p.y }))}>
             <XAxis dataKey="x" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={tickFormatter} />
+            <Tooltip formatter={tooltipFormatter} />
             <Line type="monotone" dataKey="y" stroke="var(--status-info)" strokeWidth={2} dot={false} />
           </LineChart>
         </ResponsiveContainer>
@@ -26,8 +37,8 @@ export function ChartRenderer({ chart }: { chart: ChartSpec | null }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chart.points.map((p) => ({ x: p.x, y: p.y }))}>
             <XAxis dataKey="x" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={tickFormatter} />
+            <Tooltip formatter={tooltipFormatter} />
             <Bar dataKey="y" fill="var(--status-info)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
@@ -66,8 +77,8 @@ export function ChartRenderer({ chart }: { chart: ChartSpec | null }) {
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data}>
             <XAxis dataKey="x" tick={{ fontSize: 11 }} />
-            <YAxis tick={{ fontSize: 11 }} />
-            <Tooltip />
+            <YAxis tick={{ fontSize: 11 }} tickFormatter={tickFormatter} />
+            <Tooltip formatter={tooltipFormatter} />
             <Bar dataKey="y" fill="var(--status-info)" radius={[6, 6, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
