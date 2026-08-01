@@ -41,6 +41,17 @@ function describeError(err: unknown): { message: string; code: string } {
   return { message: "Invalid request.", code: "UNKNOWN_ERROR" };
 }
 
+// Same categorization describeError uses to decide what to say — reused here to decide
+// whether an error is a recoverable "model gave bad args" case (feed back and let it
+// retry) versus an infrastructure failure (DB down, network, a real bug) that should
+// propagate up instead of being retried up to 4x as if it were the model's mistake.
+function isRecoverable(err: unknown): boolean {
+  if (err instanceof InsufficientDataError) return true;
+  if (err instanceof CompareRequiresDateRangeError) return true;
+  if (err && typeof err === "object" && "issues" in err) return true;
+  return false;
+}
+
 export async function orchestrate(question: string, history: ConversationTurn[]): Promise<AskResult> {
   const messages: ChatCompletionMessageParam[] = [
     { role: "system", content: SYSTEM_PROMPT },
@@ -141,6 +152,15 @@ export async function orchestrate(question: string, history: ConversationTurn[])
 
       throw new Error(`Unknown tool: ${call.function.name}`);
     } catch (err) {
+      console.error("Tool execution error:", err);
+
+      // Infrastructure/unknown errors (DB down, network, a real bug) aren't the model's
+      // mistake to correct — rethrow so app/api/ask/route.ts's catch returns a proper 500
+      // instead of silently retrying an outage up to 4x as "invalid arguments".
+      if (!isRecoverable(err)) {
+        throw err;
+      }
+
       const { message, code } = describeError(err);
       messages.push({
         role: "assistant",
