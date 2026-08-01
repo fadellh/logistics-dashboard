@@ -40,7 +40,7 @@ components/
 
 lib/
   db/            # schema.ts, client.ts, seed.ts
-  queries/        # DATA COMPUTATION — analytics.ts, forecast.ts, schemas.ts (Zod)
+  queries/        # DATA COMPUTATION — analytics.ts, forecast.ts, compare.ts, schemas.ts (Zod)
   ai/              # AI INTERPRETATION + BUSINESS LOGIC
     client.ts        # DeepSeek config (baseURL/model)
     tools.ts           # tool JSON schemas (mirror lib/queries/schemas.ts)
@@ -63,10 +63,11 @@ skeleton state. `/api/ask` is the only actual HTTP API in the app.
 2. Build messages: system prompt (with allowlist) + session history + new question.
 3. Call DeepSeek once with both tool schemas, `tool_choice: auto`.
 4. No tool call → model declined/is asking for clarification → return its text
-   directly as `answer`, done (see "Scope boundary" above).
+   directly as `answer`, done (see "Scope boundary" below).
 5. Tool call → Zod-validate args. Invalid → return a structured error as the tool
    result and re-prompt (capped at 4 round-trips total — the rate-limit rule).
-6. Valid → dispatch to `runQueryAnalytics` or `runForecastDemand` (`lib/queries/`).
+6. Valid → dispatch to `runQueryAnalytics`, `runForecastDemand`, or `runCompareMetric`
+   (`lib/queries/`) based on which of the 3 tools was called.
 7. Computation runs against Postgres via Drizzle — deterministic, no AI involved.
 8. Compose the answer sentence from `answerTemplates.ts` (see "Revision" below —
    **not** a second model call).
@@ -372,8 +373,10 @@ choice is deterministic given the query shape, not guessed.
 
 ## Product & UX
 
-### Component stack (from the emil-design-eng `pick-ui-library` skill — a curated,
-opinionated list; not substituted without reason)
+### Component stack
+
+From the emil-design-eng `pick-ui-library` skill — a curated, opinionated list, not
+substituted without reason:
 
 - **Recharts** — all charts.
 - **base-ui** — unstyled accessible primitives (date-range popover, selects,
@@ -469,6 +472,9 @@ consistency that's only checkable once real.
 - Each question renders as one result card: answer text → chart (if any) →
   collapsible explainability panel → for forecast results, additionally the
   inventory recommendation and methodology note.
+- Conversational context carries across cards in the session (see "Conversational
+  memory" above) — the feed *looks* like independent cards but the model sees prior
+  turns, so follow-ups work.
 
 ### Explainability panel: plain language first, raw query one level deeper
 
@@ -501,9 +507,6 @@ apple-design's "show the common path first, advanced options one level deeper":
 All three tiers come from the same API response (`queryPlan` + `METRIC_LABELS` is a
 pure display-layer lookup) — no extra backend work, just two rendering passes over
 one payload.
-- Conversational context carries across cards in the session (see "Conversational
-  memory" above) — the feed *looks* like independent cards but the model sees prior
-  turns, so follow-ups work.
 
 ## Explicitly out of scope
 
