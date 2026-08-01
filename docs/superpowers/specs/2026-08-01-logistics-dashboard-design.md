@@ -23,6 +23,79 @@ effort 6–10h; explicit instruction to avoid over-engineering.
 - **No auth.** Spec allows omitting auth if unused; this removes a whole category of
   deploy/setup risk for a read-only public demo.
 
+## Code structure
+
+```
+app/
+  layout.tsx              # root layout + sidebar nav
+  page.tsx                 # Dashboard (/) — Server Component, calls lib/queries directly
+  ask/page.tsx               # Ask AI (/ask) — Client Component
+  api/ask/route.ts            # the only real API route — AI orchestration entry point
+
+components/
+  ui/                       # base-ui wrapped primitives
+  dashboard/                 # KpiCard, 3 charts, DateRangeFilter
+  ask/                        # QuestionInput, ExampleChips, ResultCard, ExplainabilityPanel
+  shared/                     # StatusBadge (cva), DataTable
+
+lib/
+  db/            # schema.ts, client.ts, seed.ts
+  queries/        # DATA COMPUTATION — analytics.ts, forecast.ts, schemas.ts (Zod)
+  ai/              # AI INTERPRETATION + BUSINESS LOGIC
+    client.ts        # DeepSeek config (baseURL/model)
+    tools.ts           # tool JSON schemas (mirror lib/queries/schemas.ts)
+    systemPrompt.ts      # instructions + allowlist
+    orchestrate.ts         # the routing loop (business logic — see below)
+  format/
+    metricLabels.ts    # human-readable metric names
+    chartSelect.ts       # deterministic chart-type rule
+    answerTemplates.ts     # deterministic answer-sentence templates
+```
+
+Dashboard reads data via direct server-side function calls (Server Component →
+`lib/queries`), not a REST round-trip — the date-range filter is a URL search param,
+changing it triggers a soft navigation and Next.js's `loading.tsx` gives a free
+skeleton state. `/api/ask` is the only actual HTTP API in the app.
+
+### `orchestrate.ts` sequence (the "business logic" layer)
+
+1. Receive `{question, history}`.
+2. Build messages: system prompt (with allowlist) + session history + new question.
+3. Call DeepSeek once with both tool schemas, `tool_choice: auto`.
+4. No tool call → model declined/is asking for clarification → return its text
+   directly as `answer`, done (see "Scope boundary" above).
+5. Tool call → Zod-validate args. Invalid → return a structured error as the tool
+   result and re-prompt (capped at 4 round-trips total — the rate-limit rule).
+6. Valid → dispatch to `runQueryAnalytics` or `runForecastDemand` (`lib/queries/`).
+7. Computation runs against Postgres via Drizzle — deterministic, no AI involved.
+8. Compose the answer sentence from `answerTemplates.ts` (see "Revision" below —
+   **not** a second model call).
+9. Pick chart type via `chartSelect.ts` from the result shape.
+10. Assemble `{answer, chart, queryPlan (= the validated tool args), filters, table}`.
+
+Migrations use `drizzle-kit push` directly (no generated migration files) — the
+schema is fixed for this project; only move to `drizzle-kit generate` if the schema
+needs to evolve after data already exists.
+
+## Architecture pattern: plain 3-layer separation, not DDD or Hexagonal
+
+The spec's only architectural requirement is literal: *"clearly separate AI
+interpretation, data computation, and business logic."* That's three folders
+(`lib/ai/`, `lib/queries/`, and the orchestration glue that calls both), not a named
+enterprise pattern. Explicitly **not** adopting:
+
+- **DDD** — needs a rich domain model (aggregates/entities with behavior, invariants
+  to protect) to earn its cost. We have one flat, read-only table and no business
+  rules beyond aggregation math. No aggregate roots to design.
+- **Hexagonal / ports-and-adapters** — earns its cost when multiple interchangeable
+  infrastructure implementations exist. We have exactly one DB (Neon) and the LLM
+  provider swap is already a one-line config change (`baseURL`/`model`), not a reason
+  to build an interface + DI container for a single implementation.
+
+Folder boundaries + function signatures already deliver the separation the spec asks
+for, at zero ceremony cost. Reaching for either pattern here would be the over-
+engineering the spec explicitly warns against.
+
 ## Data
 
 CSV (`mock_logistics_data.csv`, 400 rows) seeded once into a single `orders` table
@@ -59,19 +132,47 @@ requirement. (Reference: `ai-engineering-from-scratch`,
 `phases/14-agent-engineering/12-anthropic-workflow-patterns/docs/en.md`.)
 
 ```
-User question → DeepSeek (system prompt + tool schemas)
+User question → DeepSeek (system prompt + tool schemas, ONE call)
   → tool call: query_analytics(...) | forecast_demand(...)
   → Zod-validate args → run allowlisted Drizzle query → structured result
-  → result fed back to model → model phrases the final NL explanation
+  → answer text composed by a deterministic template (no second model call)
   → API returns { answer, chart?, queryPlan, filters, table }
 ```
 
 The model **never** sees or writes SQL, and never states a number that didn't come
-from the computation step — the second model turn only phrases prose around numbers
-already computed. `queryPlan` in the response is literally the tool call's `input`
-object, not a separately-generated explanation — the "reasoning shown" is the
+from the computation step. `queryPlan` in the response is literally the tool call's
+`input` object, not a separately-generated explanation — the "reasoning shown" is the
 structure that actually ran, not prose that could drift from it. This satisfies "AI
 must never generate answers without computation" literally, not just as an intent.
+
+### Revision: one LLM call, not two — templated answers over a second model turn
+
+Original draft of this doc had the model make a second call to phrase the final
+answer from the computed result. Ponytail review question: does that second call need
+to exist? Our supported question set is a small closed grammar (metric × groupBy), so
+the answer sentence can be built from a fixed set of string templates keyed off the
+same `chartSelect.ts` shape used for chart-type selection — e.g. for a ranking result:
+`` `${topRow.label} has the highest ${metricLabel} at ${formatValue(topRow.value)}.` ``
+
+Why this is the better default here, not just the lazier one:
+
+- **Correctness.** Every time a value gets re-expressed by a second LLM call, there's
+  a small but nonzero chance it's transcribed wrong — a game of telephone with a
+  number. Templating removes that failure mode entirely: the exact value that came
+  out of the Drizzle query is the exact value rendered, with zero paraphrasing step in
+  between. Given Data Correctness is tied for the highest evaluation weight (20%),
+  removing a whole class of "the AI misstated a correct number" bug is worth more than
+  the more natural phrasing a second call would buy.
+- **Cost/latency.** One model call per question instead of two.
+- **Stronger claim, not just a cheaper one.** "AI never generates answers without
+  computation" now holds at the *wording* level too — not just the numbers, the
+  sentence itself is deterministic code, not model output.
+
+Tradeoff, stated plainly (this goes in the README): templated answers read slightly
+more rigid than free-form LLM prose — acceptable here because the supported question
+grammar is small and enumerable, so a handful of templates covers it without reading
+as robotic. If the question set grows much larger or more open-ended later, this is
+the first thing to revisit (README "Future Improvements").
 
 ### Scope boundary: what happens when no recipe fits
 
