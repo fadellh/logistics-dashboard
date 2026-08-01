@@ -47,7 +47,23 @@ export default function AskPage() {
     <div className="space-y-6 p-8">
       <h1 className="text-xl font-semibold">Ask AI</h1>
       <QuestionInput onSubmit={ask} disabled={loading} value={pendingQuestion} />
-      <ExampleChips onPick={(q) => { setPendingQuestion(q); ask(q); }} />
+      <ExampleChips
+        onPick={(q) => {
+          // Guard here (not inside ask()) so a blocked call never invokes ask
+          // at all — an async function's early return still resolves its
+          // promise, which would fire the .finally() below prematurely and
+          // blank the box mid-request. QuestionInput's own `disabled` prop
+          // already guards its Ask button/Enter path, so this is the only
+          // caller that needs it (covers a focused chip's Enter key re-firing
+          // its click while the first request is still in flight).
+          if (loading) return;
+          setPendingQuestion(q);
+          // Clear the synced text once this request settles, so leftover chip
+          // text can't be double-submitted via Ask/Enter, and clicking the same
+          // chip again re-triggers the sync (value goes q -> undefined -> q).
+          ask(q).finally(() => setPendingQuestion(undefined));
+        }}
+      />
       <div className="space-y-4">
         {turns.map((t, i) => (
           <div key={i} className="card">
