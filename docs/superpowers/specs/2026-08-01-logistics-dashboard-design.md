@@ -270,6 +270,16 @@ over moving average because the spec's example question ("predict demand for the
 next 4 months") implies a genuine trend projection, not a flat repeat of a recent
 average.
 
+**Gap caught in final requirements audit**: the spec's own second example — "How
+much inventory should I plan?" — names no SKU or category at all, but `sku`/
+`productCategory` is required (one of the two). This is not a case where the model
+should guess or default to "all products" (multi-category forecasting is explicitly
+out of scope — see Explicitly out of scope below). The system prompt must instruct
+the model that a forecast question with no identifiable product/category is
+*ambiguous, not unsupported* — it should ask the user which SKU or category before
+calling the tool, the same self-correction path already used for invalid arguments,
+just triggered by interpretation instead of validation.
+
 ### `compare_metric` tool — the bounded answer to "Diagnostic Analytics: explaining why"
 
 The spec's Core Concept section names "Diagnostic Analytics — explaining why" as one
