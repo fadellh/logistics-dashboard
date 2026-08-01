@@ -41,8 +41,14 @@ export const forecastDemandArgsSchema = z
     message: "sku or productCategory is required",
   });
 
+// Narrower than metricEnum on purpose: "overall average"/"previous period" baselines are
+// only a meaningful comparison for ratio/normalized metrics. count/sum_order_value would
+// compare a scoped total against an overall TOTAL mislabeled as an "average" — see
+// README Limitations for why that's excluded here rather than just relabeled.
+export const compareMetricEnum = z.enum(["on_time_rate", "delay_rate", "avg_delivery_time"]);
+
 export const compareMetricArgsSchema = z.object({
-  metric: metricEnum,
+  metric: compareMetricEnum,
   filters: filtersSchema,
   compareTo: z.enum(["overall_average", "previous_period"]),
 });

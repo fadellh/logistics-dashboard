@@ -22,6 +22,9 @@ const FILTERS_PROPERTY = {
 };
 
 const METRIC_ENUM = ["count", "sum_order_value", "avg_delivery_time", "on_time_rate", "delay_rate"];
+// compare_metric only supports ratio/normalized metrics — "overall average" baseline is
+// meaningless for count/sum_order_value (it's actually a total, not an average).
+const COMPARE_METRIC_ENUM = ["on_time_rate", "delay_rate", "avg_delivery_time"];
 
 export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
   {
@@ -71,7 +74,7 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
       parameters: {
         type: "object",
         properties: {
-          metric: { type: "string", enum: METRIC_ENUM },
+          metric: { type: "string", enum: COMPARE_METRIC_ENUM },
           filters: FILTERS_PROPERTY,
           compareTo: { type: "string", enum: ["overall_average", "previous_period"] },
         },
