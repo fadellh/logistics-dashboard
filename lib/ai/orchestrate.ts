@@ -115,7 +115,10 @@ export async function orchestrate(question: string, history: ConversationTurn[])
           filters: null,
           metric: null,
           groupBy: null,
-          table: result.points,
+          // ponytail: ForecastPoint is {month, value, kind}; normalize to the
+          // same {label, value} shape the other two branches use so DataTable
+          // (which reads r.label) doesn't render blank/duplicate-keyed rows.
+          table: result.points.map((p) => ({ label: p.month, value: p.value })),
         };
       }
 

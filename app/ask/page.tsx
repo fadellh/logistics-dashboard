@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { QuestionInput } from "@/components/ask/QuestionInput";
 import { ExampleChips } from "@/components/ask/ExampleChips";
+import { ResultCard } from "@/components/ask/ResultCard";
 import type { AskResult, ConversationTurn } from "@/lib/ai/orchestrate";
 
 type Turn = { question: string; result: AskResult };
@@ -66,10 +67,7 @@ export default function AskPage() {
       />
       <div className="space-y-4">
         {turns.map((t, i) => (
-          <div key={i} className="card">
-            <div className="text-sm text-[var(--color-text-muted)]">&quot;{t.question}&quot;</div>
-            <div className="mt-2">{t.result.answer}</div>
-          </div>
+          <ResultCard key={i} question={t.question} result={t.result} />
         ))}
         {loading && <div className="text-sm text-[var(--color-text-muted)]">Thinking…</div>}
       </div>
