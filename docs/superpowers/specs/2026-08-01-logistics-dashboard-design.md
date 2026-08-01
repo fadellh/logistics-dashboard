@@ -273,9 +273,40 @@ calling loop routes to either tool):
 - Input box + a handful of clickable example questions (the spec's own 3 examples +
   one forecast example) — doubles as a guaranteed happy-path for reviewers.
 - Each question renders as one result card: answer text → chart (if any) →
-  collapsible explainability panel (filters, metric/dimension, query plan, data
-  table) → for forecast results, additionally the inventory recommendation and
-  methodology note.
+  collapsible explainability panel → for forecast results, additionally the
+  inventory recommendation and methodology note.
+
+### Explainability panel: plain language first, raw query one level deeper
+
+A business user doesn't know what "tool", "query_analytics", or `metric: delay_rate`
+mean — showing raw tool-call JSON as the primary explainability view fails the
+audience even though it technically satisfies the spec's checklist. Three tiers, per
+apple-design's "show the common path first, advanced options one level deeper":
+
+1. **Answer** (always visible) — plain-language sentence + chart.
+2. **"How I found this"** (one click) — the same filters/metric/groupBy from the
+   tool call, but rendered through a small display-name dictionary instead of raw
+   enum values:
+   ```ts
+   const METRIC_LABELS = {
+     delay_rate: "Delay rate (delayed ÷ total orders)",
+     on_time_rate: "On-time rate (on-time ÷ total orders)",
+     count: "Number of orders",
+     avg_delivery_time: "Average delivery time",
+     sum_order_value: "Total order value",
+   };
+   ```
+   Plus a "View data table" link. This alone already satisfies the spec's four
+   explainability bullets — the raw tool call is not required to be user-facing,
+   just available.
+3. **"Show technical query"** (further click, muted/small, off by default) — the
+   literal tool-call JSON. Not for the business-user persona; this is for the
+   (technical) evaluator who wants to verify "AI never generates answers without
+   computation" at the most concrete level. Same data as tier 2, just unrendered.
+
+All three tiers come from the same API response (`queryPlan` + `METRIC_LABELS` is a
+pure display-layer lookup) — no extra backend work, just two rendering passes over
+one payload.
 - Conversational context carries across cards in the session (see "Conversational
   memory" above) — the feed *looks* like independent cards but the model sees prior
   turns, so follow-ups work.
