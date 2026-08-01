@@ -73,6 +73,35 @@ object, not a separately-generated explanation — the "reasoning shown" is the
 structure that actually ran, not prose that could drift from it. This satisfies "AI
 must never generate answers without computation" literally, not just as an intent.
 
+### Scope boundary: what happens when no recipe fits
+
+The tool schema isn't "one recipe per question" — `metric × groupBy × filters` is a
+combinatorial space (thousands of valid questions from a handful of enums), so most of
+the model's real work is translating messy natural language ("kurir" → `carrier`,
+"telat" → `status: delayed`, "last month" → a concrete date range) into that
+structure, not picking between two buttons. That translation step is genuine NLU work;
+the execution step is deliberately kept boring and deterministic on purpose — this
+project rewards Data Correctness (20%) over flexibility, and the spec explicitly frames
+AI as "a routing and orchestration system — not the source of truth."
+
+Three cases when a question doesn't map to a valid tool call:
+
+1. **Out of domain** (weather, general chat) → the model declines directly, no tool
+   call. Allowed to answer in its own words here because a *decline* isn't a data
+   claim — "AI must never generate answers without computation" bars ungrounded
+   numbers, not a refusal.
+2. **In-domain but unsupported metric/dimension** (e.g. profit margin — no cost data
+   exists in the dataset) → same decline path, but the system prompt requires it to
+   name what *is* supported instead of just failing silently.
+3. **Ambiguous phrasing of a supported question** → resolved by the model itself via
+   entity/date normalization; if truly ambiguous, it asks a clarifying question instead
+   of guessing (same self-correction path as the structured-error case above).
+
+The system prompt carries an explicit allowlist (supported metrics, dimensions,
+filters) so the model knows its own boundary rather than guessing it. This boundary —
+and the fact that it's a deliberate design choice, not a gap — is documented in the
+README's required "unsupported queries" section.
+
 ### Applied tool-calling safety rules
 
 From `phases/11-llm-engineering/09-function-calling/docs/en.md` ("Security: The
