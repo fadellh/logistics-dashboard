@@ -7,6 +7,8 @@ export async function POST(req: NextRequest) {
   let body: { question?: unknown; history?: unknown };
   try {
     body = await req.json();
+    // ponytail: guard against null/primitives from JSON.parse("null")
+    body ??= {};
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -17,7 +19,7 @@ export async function POST(req: NextRequest) {
 
   const history: ConversationTurn[] = Array.isArray(body.history)
     ? (body.history as ConversationTurn[]).filter(
-        (h) => (h.role === "user" || h.role === "assistant") && typeof h.content === "string"
+        (h) => typeof h === "object" && h !== null && (h.role === "user" || h.role === "assistant") && typeof h.content === "string"
       )
     : [];
 
