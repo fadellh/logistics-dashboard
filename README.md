@@ -27,6 +27,7 @@ cp .env.example .env       # fill in DATABASE_URL and DEEPSEEK_API_KEY
 npx drizzle-kit push       # create the orders table from lib/db/schema.ts
 npm run seed                # load mock_logistics_data.csv into the DB
 npm run dev                 # http://localhost:3000
+npm test                    # runs the node:test suites (no DB/.env required)
 ```
 
 ### Environment Variables
@@ -177,7 +178,10 @@ runaway loop.
   across, e.g., 9 carriers × 12 months, the average bucket has ~3-4 orders — too few
   for a z-score or IQR-based "this is anomalous" claim to be reliable. Rather than
   produce noise dressed as a finding, `compare_metric` reports plain deltas without
-  a significance judgment.
+  a significance judgment. In practice, a comparison scope with zero matching orders
+  reports a 0 rate, which is indistinguishable from a genuinely low rate — treat a
+  `compare_metric` result of exactly 0 with the same caution as any other small-sample
+  statistic.
 
 ### Unsupported Features or Queries
 
