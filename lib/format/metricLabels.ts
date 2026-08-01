@@ -1,8 +1,8 @@
 import type { Metric } from "../queries/schemas";
 
 export const METRIC_LABELS: Record<Metric, string> = {
-  delay_rate: "Delay rate (delayed ÷ total orders)",
-  on_time_rate: "On-time rate (on-time ÷ total orders)",
+  delay_rate: "Delay rate (delayed ÷ (delivered + delayed))",
+  on_time_rate: "On-time rate (delivered ÷ (delivered + delayed))",
   count: "Number of orders",
   avg_delivery_time: "Average delivery time",
   sum_order_value: "Total order value",
