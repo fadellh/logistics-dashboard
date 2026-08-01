@@ -16,12 +16,17 @@ export async function POST(req: NextRequest) {
   if (typeof body.question !== "string" || body.question.trim().length === 0) {
     return NextResponse.json({ error: "question is required" }, { status: 400 });
   }
+  if (body.question.length > 1000) {
+    return NextResponse.json({ error: "question is too long (max 1000 characters)" }, { status: 400 });
+  }
 
-  const history: ConversationTurn[] = Array.isArray(body.history)
-    ? (body.history as ConversationTurn[]).filter(
-        (h) => typeof h === "object" && h !== null && (h.role === "user" || h.role === "assistant") && typeof h.content === "string"
-      )
-    : [];
+  const history: ConversationTurn[] = (
+    Array.isArray(body.history)
+      ? (body.history as ConversationTurn[]).filter(
+          (h) => typeof h === "object" && h !== null && (h.role === "user" || h.role === "assistant") && typeof h.content === "string"
+        )
+      : []
+  ).slice(-20);
 
   try {
     const result = await orchestrate(body.question, history);
