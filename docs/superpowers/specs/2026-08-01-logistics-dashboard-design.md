@@ -120,6 +120,31 @@ Non-Negotiable Rules" + "Error Handling"):
    implemented: no separate "ambiguity detector" needed, just correct error handling
    on the existing tool-call loop.
 
+### Conversational memory (session-level only)
+
+Two different things get conflated as "memory" — worth being precise since the spec
+lists "Query history" as an optional bonus, which could wrongly be read as "memory is
+optional too":
+
+- **Basic conversational context** (what we're building): the running array of prior
+  turns (`{question, tool call, result}`) in this browser session gets sent back on
+  every request, so follow-ups ("bandingkan dengan carrier lain") resolve correctly.
+  Per `phases/14-agent-engineering/01-the-agent-loop/docs/en.md`, this is not an add-on
+  — it's the default shape of any multi-turn chat loop; deliberately dropping it would
+  take *more* code (truncating history), not less. Scope: **in-memory, this session
+  only** — a page reload starts fresh. No server-side session store.
+- **Advanced external memory** (MemGPT/Letta/Mem0 — `phases/14-agent-engineering/
+  07-09`): paging conversation/documents in and out of an external store for
+  cross-session persistence ("remember what I asked yesterday") or >100k-token
+  overflow. Not needed at our scale — this is what stays out of scope, not
+  conversational context itself.
+- The spec's **"Query history" bonus item is a separate, still-skipped feature**: a
+  persistent, revisitable list of past queries across sessions/reloads. Session-level
+  conversational context doesn't provide that on its own.
+
+UI stays a card feed (each turn renders as its own explainable card) — memory is a
+backend/prompt concern, not a chat-bubble UI requirement.
+
 ### `query_analytics` tool
 
 Args: `metric` (count | sum_order_value | avg_delivery_time | on_time_rate),
@@ -150,11 +175,54 @@ bookkeeping layer needed:
 - `queryPlan` — the structured tool-call args themselves (this *is* the query plan)
 - `table` — the raw aggregated rows backing the chart/answer
 
-## Dashboard tab
+## Product & UX
 
-Static (no LLM call): KPI cards (total/delivered/delayed orders, on-time rate, avg
-delivery time) + 2 charts (order volume over time; delivered vs delayed) computed
-by the same `query_analytics` functions the AI tool calls, called directly.
+### Component stack (from the emil-design-eng `pick-ui-library` skill — a curated,
+opinionated list; not substituted without reason)
+
+- **Recharts** — all charts.
+- **base-ui** — unstyled accessible primitives (date-range popover, selects,
+  disclosure/accordion for the explainability panel).
+- **NumberFlow** — animated KPI numbers (stat cards tick up instead of snapping).
+- **Sonner** — error toasts.
+- **cva** — variant-driven status-badge styling (delivered/delayed/in_transit/
+  exception/canceled share one component, 5 variants).
+- **Not used**: shadcn/ui (outside the curated list — base-ui + Tailwind directly
+  instead), zustand (no cross-page shared state complex enough to need a store —
+  `useState` / URL search params are enough for a 2-page app).
+
+Visual tokens (sampled from the live spaceshipapp.com site + the Track & Trace
+product screenshot, not guessed): accent green `#17F082`, dark surface `#0A0A0A`,
+content background `#F8F8F8`, Inter as a free substitute for their licensed "ABC
+Favorit Extended". Dark slim sidebar + light content area, white KPI cards with
+colored icon badges, status dot/badge colors reused identically across the data
+table and the charts (one visual language, not two).
+
+### Information architecture — 2 pages
+
+**1. Dashboard (`/`)** — descriptive analytics, no LLM call at all:
+- One date-range filter at the top (base-ui popover), driving every KPI and chart
+  below it via the same `query_analytics` functions the AI tool calls — this is the
+  one interactive control on this page, deliberately not filter-everything (carrier/
+  region/category filters are delegated to the Ask AI page instead of duplicating
+  query surface area on both pages).
+- KPI row: 5 stat cards (total orders, delivered, delayed, on-time rate, avg delivery
+  time), NumberFlow-animated values, colored icon badges matching the status palette.
+- 3 charts: order volume over time (line), delivered vs delayed (bar/donut), carrier
+  breakdown (horizontal bar) — matches all three examples the spec itself lists,
+  cheap to add since it's the same query function with a different `groupBy`.
+
+**2. Ask AI (`/ask`)** — diagnostic + forecasting, single page for both (same tool-
+calling loop routes to either tool):
+- Input box + a handful of clickable example questions (the spec's own 3 examples +
+  one forecast example) — doubles as a guaranteed happy-path for reviewers.
+- Each question renders as one result card: answer text → chart (if any) →
+  collapsible explainability panel (filters, metric/dimension, query plan, data
+  table) → for forecast results, additionally the inventory recommendation and
+  methodology note.
+- Conversational context carries across cards in the session (see "Conversational
+  memory" above) — the feed *looks* like independent cards but the model sees prior
+  turns, so follow-ups work.
 
 ## Explicitly out of scope
 
