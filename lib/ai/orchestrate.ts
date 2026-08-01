@@ -54,6 +54,10 @@ export async function orchestrate(question: string, history: ConversationTurn[])
       messages,
       tools: TOOLS,
       tool_choice: "auto",
+      // Only one tool_calls[0] is ever handled/answered below; without this, a
+      // multi-call turn would leave later tool_call ids with no matching `tool`
+      // response, which some OpenAI-compatible APIs reject on the next request.
+      parallel_tool_calls: false,
     });
 
     const choice = response.choices[0].message;
