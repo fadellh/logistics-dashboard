@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "seed": "tsx --env-file=.env lib/db/seed.ts"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-rc.0",
