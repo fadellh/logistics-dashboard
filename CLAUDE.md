@@ -55,12 +55,37 @@ swap provider by changing `baseURL`/`model` in one place) · Recharts · base-ui
   reason), `emil-design-eng` (animation/motion/component polish), `apple-design`
   (typography, spacing, materials). These are `disable-model-invocation: true` —
   read `.claude/skills/<name>/SKILL.md` directly if the Skill tool call fails.
+- **Any chart/color work** — use the `dataviz` skill before choosing a single hex
+  value by eye. Run `scripts/validate_palette.js` on any categorical/status set —
+  don't reason about color-blind safety by inspection. Brand accent (`#17F082`) is
+  UI chrome only, never a chart data color — see spec doc's Design Tokens section
+  for the validated status/categorical palette already chosen. Status colors always
+  ship with an icon + label, never color alone (mandatory mitigation, not optional).
 - **Ponytail governs all code**: simplest solution that's actually correct, no
   unrequested abstraction, reuse before you write. Mark deliberate simplifications
   with a `// ponytail:` comment naming the ceiling and upgrade path.
 - **Non-trivial logic gets one runnable check** — forecast regression math and the
   query-arg allowlist/validation are the two spots that need it. Use Node's
   built-in `node:test`, not a new test framework/dependency.
+
+## superpowers skills — what's used, what's next, what's skipped
+
+This whole design conversation ran under `superpowers:brainstorming`. That skill's
+own hard rule: **the only skill invoked after brainstorming is `writing-plans`** —
+so that's the mandated next step once this spec is approved, not optional tooling.
+
+- **`writing-plans`** — required next step: turn this spec into an executable
+  implementation plan before writing any code.
+- **`executing-plans`** — how the actual build gets carried out once a plan exists.
+- **`verification-before-completion`** — before claiming any part "done": run
+  build/lint/the `node:test` checks and confirm real output, don't assert success.
+- **`requesting-code-review`** — before considering the implementation finished
+  against the spec's evaluation criteria.
+- **Skipped on purpose**: `using-git-worktrees` (solo small project, no isolation
+  need), full `test-driven-development` ceremony (the lighter "one check per
+  non-trivial logic" rule above already covers this at the right weight for a
+  6-10h budget), `systematic-debugging` (reactive — invoke only if a real bug
+  shows up, not preemptively).
 
 ## Env vars
 
