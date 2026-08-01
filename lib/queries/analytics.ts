@@ -20,6 +20,12 @@ const GROUP_BY_EXPR: Record<GroupBy, SQL> = {
   month: sql`to_char(date_trunc('month', ${orders.orderDate}::date), 'YYYY-MM')`,
 };
 
+// ponytail: week/month labels are ISO strings, so ascending label order == chronological
+// order — needed for time-series line charts (Dashboard's OrderVolumeChart, AI chat's
+// groupBy=week/month line chart). Every other groupBy (carrier, region, ...) keeps
+// ranking by metric value desc, which is what "top N" style breakdowns want.
+const TIME_GROUP_BYS = new Set<GroupBy>(["week", "month"]);
+
 const METRIC_EXPR: Record<Metric, SQL<number>> = {
   count: sql<number>`count(*)`,
   sum_order_value: sql<number>`coalesce(sum(${orders.orderValueUsd}), 0)`,
@@ -60,12 +66,13 @@ export async function runQueryAnalytics(args: QueryAnalyticsArgs): Promise<Query
   }
 
   const groupExpr = GROUP_BY_EXPR[args.groupBy];
+  const orderExpr = TIME_GROUP_BYS.has(args.groupBy) ? sql`${groupExpr} asc` : sql`${metricExpr} desc`;
   const rows = await db
     .select({ label: sql<string>`${groupExpr}`, value: metricExpr })
     .from(orders)
     .where(where)
     .groupBy(groupExpr)
-    .orderBy(sql`${metricExpr} desc`);
+    .orderBy(orderExpr);
 
   return {
     metric: args.metric,
