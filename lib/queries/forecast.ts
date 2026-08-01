@@ -1,7 +1,8 @@
-import { sql, eq, or } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { db } from "../db/client";
 import { orders } from "../db/schema";
 import type { ForecastDemandArgs } from "./schemas";
+import { linearRegression, projectForecast, InsufficientDataError } from "./regression";
 
 export type ForecastPoint = { month: string; value: number; kind: "historical" | "forecast" };
 export type ForecastResult = {
@@ -12,37 +13,9 @@ export type ForecastResult = {
   methodology: string;
 };
 
-export function linearRegression(x: number[], y: number[]): { slope: number; intercept: number } {
-  const n = x.length;
-  const xMean = x.reduce((a, b) => a + b, 0) / n;
-  const yMean = y.reduce((a, b) => a + b, 0) / n;
-  let num = 0;
-  let den = 0;
-  for (let i = 0; i < n; i++) {
-    num += (x[i] - xMean) * (y[i] - yMean);
-    den += (x[i] - xMean) ** 2;
-  }
-  const slope = den === 0 ? 0 : num / den;
-  const intercept = yMean - slope * xMean;
-  return { slope, intercept };
-}
-
-export function projectForecast(historicalValues: number[], horizonMonths: number): number[] {
-  const x = historicalValues.map((_, i) => i + 1);
-  const { slope, intercept } = linearRegression(x, historicalValues);
-  const forecast: number[] = [];
-  for (let i = 1; i <= horizonMonths; i++) {
-    const monthIndex = historicalValues.length + i;
-    forecast.push(Math.max(0, slope * monthIndex + intercept));
-  }
-  return forecast;
-}
-
-export class InsufficientDataError extends Error {
-  constructor() {
-    super("INSUFFICIENT_DATA");
-  }
-}
+// Re-exported for existing callers (lib/ai/orchestrate.ts, scripts/smoke-forecast.ts) —
+// the pure math itself now lives in ./regression so it can be unit-tested without a DB.
+export { linearRegression, projectForecast, InsufficientDataError };
 
 export async function runForecastDemand(args: ForecastDemandArgs): Promise<ForecastResult> {
   const cond = args.sku

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { linearRegression, projectForecast } from "./forecast";
+import { linearRegression, projectForecast } from "./regression";
 
 test("linearRegression fits a perfect line exactly", () => {
   const x = [1, 2, 3, 4, 5];
