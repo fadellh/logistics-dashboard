@@ -9,6 +9,7 @@ const NAV = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  if (pathname === "/login") return null;
   return (
     <nav className="flex w-48 flex-col gap-1 bg-[var(--color-sidebar)] p-4">
       <div className="mb-4 text-sm font-semibold text-white">Spaceship Analytics</div>
@@ -28,6 +29,12 @@ export function Sidebar() {
           </Link>
         );
       })}
+      <a
+        href="/api/logout"
+        className="mt-auto rounded-[var(--radius-md)] px-3 py-2 text-sm text-white/60 transition hover:bg-white/5 hover:text-white"
+      >
+        Log out
+      </a>
     </nav>
   );
 }

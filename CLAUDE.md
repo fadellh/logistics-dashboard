@@ -42,7 +42,27 @@ swap provider by changing `baseURL`/`model` in one place) · Recharts · base-ui
   sample size is single digits (e.g. per-carrier-per-month ≈ 3-4 orders) — the
   result would be noise dressed as a finding. `compare_metric` reports plain
   deltas, not "this is anomalous."
-- **Data is read-only.** No mutation endpoints exist, anywhere, ever.
+- **Data is read-only.** No mutation endpoints exist, anywhere, ever — this refers
+  to the `orders` analytics dataset specifically. Auth (below) and localStorage
+  memory add no server-side writes, so this guarantee is unaffected.
+- **Lightweight password-gate auth** (added post-launch, reversing the original
+  "no auth" decision — spec explicitly permits auth if credentials are provided
+  to reviewers: "If authentication is used, provide test credentials"). Two
+  hardcoded credentials via env vars (`ADMIN_PASSWORD`, `GUEST_PASSWORD`), a
+  signed httpOnly cookie session, Next.js middleware gate on all routes except
+  `/login`. No user table, no OAuth, no session DB — deliberately minimal, purely
+  to reduce prompt-injection/cost exposure on a public DeepSeek-calling endpoint.
+  Both roles get full access (Dashboard + Ask AI) — no guest/admin capability
+  split, just two labeled credentials so reviewer access can be revoked/rotated
+  independently of the owner's.
+- **Conversational memory persists client-side only (localStorage), never a DB
+  write.** Survives page refresh within the same browser; does not sync across
+  devices. A "New chat" control clears both in-memory state and the localStorage
+  key. Chosen over DB-backed persistence specifically to avoid a second
+  "no mutation endpoints" reversal — see
+  `~/fadel/ai-engineering-from-scratch/phases/14-agent-engineering/07-memory-virtual-context-memgpt/docs/en.md:23,75`
+  (session-scoped memory is the correct default; persistence beyond it is an
+  optional upgrade layer, not a missing requirement).
 
 ## Skill usage
 

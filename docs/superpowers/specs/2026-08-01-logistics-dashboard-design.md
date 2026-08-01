@@ -489,13 +489,18 @@ apple-design's "show the common path first, advanced options one level deeper":
    enum values:
    ```ts
    const METRIC_LABELS = {
-     delay_rate: "Delay rate (delayed ÷ total orders)",
-     on_time_rate: "On-time rate (on-time ÷ total orders)",
+     delay_rate: "Delay rate (delayed ÷ (delivered + delayed))",
+     on_time_rate: "On-time rate (delivered ÷ (delivered + delayed))",
      count: "Number of orders",
      avg_delivery_time: "Average delivery time",
      sum_order_value: "Total order value",
    };
    ```
+   (Corrected during the final-review fix wave — the original illustrative snippet
+   above stated "÷ total orders," which doesn't match `analytics.ts`'s actual
+   denominator of delivered+delayed only; the wrong text had been copied verbatim
+   into `lib/format/metricLabels.ts` and shipped in both the answer sentence and
+   this tier.)
    Plus a "View data table" link. This alone already satisfies the spec's four
    explainability bullets — the raw tool call is not required to be user-facing,
    just available.
@@ -510,11 +515,63 @@ one payload.
 
 ## Explicitly out of scope
 
-Query history, response caching, Docker, tests beyond one smoke check, vector
-DB/RAG (400 structured rows don't need semantic search), fine-tuning, auth. All are
-either spec bonus items or genuinely unnecessary at this data scale — noted in the
-README's "simplifications/limitations" section per the spec's README requirements.
+Response caching, Docker, tests beyond the two mandated `node:test` checks, vector
+DB/RAG (400 structured rows don't need semantic search), fine-tuning, DB-backed
+conversation history. All are either spec bonus items or genuinely unnecessary at
+this data scale — noted in the README's "simplifications/limitations" section per
+the spec's README requirements. (Auth and lightweight client-side conversation
+persistence were originally listed here too — see "Post-launch amendments" below
+for why both were reversed.)
+
+## Post-launch amendments
+
+Made after the initial 19-task plan shipped and was final-reviewed, in response to
+direct user feedback re-checking the original spec PDF's literal text. Each
+reverses something the sections above stated as "out of scope" — documented here
+rather than silently edited into the sections above, consistent with how every
+other reversal in this project has been handled (see `compare_metric`'s
+compareTo-param reversal and the single-LLM-call reversal, both earlier in this
+doc).
+
+- **Auth (password gate).** The spec's Deployment Requirements section states: "If
+  authentication is used, provide test credentials" — and Submission: "Provide
+  your repository link, the deployed app URL, and credentials if authentication is
+  required." Auth was never actually prohibited; "no auth" was a scope-minimization
+  choice made during initial brainstorming, not a requirement conflict. Reversed
+  because the app is a public, unauthenticated endpoint that calls a paid LLM API
+  — a real prompt-injection/cost-abuse surface once the deployed URL is shared
+  with a hiring panel. Two hardcoded credentials (admin for the owner, guest for
+  reviewers), env-var-sourced, no user table, no OAuth — see CLAUDE.md's
+  non-negotiable rules for the exact mechanism. Both roles get identical access
+  (no capability split) since the goal is independently-revocable credentials, not
+  permission tiers.
+- **Conversational memory: localStorage persistence.** The base session-scoped
+  design (in-memory only, lost on refresh) was correct per
+  `ai-engineering-from-scratch`'s framing (see CLAUDE.md's non-negotiable rules
+  for the citation) — but user testing surfaced that losing the conversation on
+  every refresh is a rough demo experience. localStorage closes that gap without
+  opening a new server-side write surface (still zero DB mutation endpoints,
+  CLAUDE.md's "data is read-only" rule is unaffected). A "New chat" control
+  clears both the in-memory `turns` state and the localStorage key. Full DB-backed
+  history (cross-device sync, admin-only visibility) was considered and rejected
+  as unnecessary scope for a take-home with no such requirement in the spec.
+- **Ask AI layout: input pinned to bottom.** Restructured from "input at top,
+  answers append below" to the standard chat layout (messages scroll above, input
+  sticky at the bottom, auto-scroll to newest turn) — pure UX preference, the spec
+  doesn't dictate layout. User feedback after using the deployed app.
+- **Considered and declined**: a dedicated raw-data table page (the spec's
+  Explainability requirement — "access to the underlying data as a table or
+  summary" — is already satisfied by the existing per-answer/per-chart "How I
+  found this" and "view data" tables; a separate all-400-rows page would be scope
+  beyond the literal requirement with no corresponding evaluation-criteria credit).
+  A dashboard granularity toggle (day/week/month) for the Order Volume chart was
+  also declined — the spec requires only "at least two charts," not a granularity
+  switch, and the Ask AI side already supports arbitrary granularity through
+  natural language ("by week", "by month") via `query_analytics`'s `groupBy`.
 
 ## Env vars
 
-`DATABASE_URL` (Neon connection string), `DEEPSEEK_API_KEY`.
+`DATABASE_URL` (Neon connection string), `DEEPSEEK_API_KEY`, `ADMIN_PASSWORD`,
+`GUEST_PASSWORD`, `SESSION_SECRET` (random string, gates the auth cookie — not a
+per-user secret, just a shared session-validity token since both roles have
+identical access).
