@@ -47,7 +47,16 @@ Data is read-only: no mutation endpoints exist at all (not just policy).
 
 ## AI Orchestration
 
-Tool-calling, not a chat loop that free-generates SQL or answers:
+**Pattern: Anthropic's "Routing" workflow** (Schluntz & Zhang, Anthropic, Dec 2024 —
+"Building Effective Agents"), not an open-ended agent loop. A classifier LLM step picks
+one of a fixed set of downstream tools; engineers own the graph, not the model. Chosen
+over a free-running agent because our tool set is small and fixed and the paths are
+fully enumerable — exactly the case where the source material says workflows beat
+agents: *"predictable tasks — if you can enumerate the steps, you should"* and
+*"compliance-bound tasks — auditors want to read the graph, not infer it from
+trajectories."* That second point maps directly onto this project's Explainability
+requirement. (Reference: `ai-engineering-from-scratch`,
+`phases/14-agent-engineering/12-anthropic-workflow-patterns/docs/en.md`.)
 
 ```
 User question → DeepSeek (system prompt + tool schemas)
@@ -59,8 +68,28 @@ User question → DeepSeek (system prompt + tool schemas)
 
 The model **never** sees or writes SQL, and never states a number that didn't come
 from the computation step — the second model turn only phrases prose around numbers
-already computed. This satisfies "AI must never generate answers without computation"
-literally, not just as an intent.
+already computed. `queryPlan` in the response is literally the tool call's `input`
+object, not a separately-generated explanation — the "reasoning shown" is the
+structure that actually ran, not prose that could drift from it. This satisfies "AI
+must never generate answers without computation" literally, not just as an intent.
+
+### Applied tool-calling safety rules
+
+From `phases/11-llm-engineering/09-function-calling/docs/en.md` ("Security: The
+Non-Negotiable Rules" + "Error Handling"):
+
+1. Never pass model-generated SQL to the DB → Drizzle allowlisted queries only.
+2. Allowlist functions, no generic "execute anything" tool → exactly 2 tools exist.
+3. Validate every argument → Zod schemas on both tool inputs.
+4. Sanitize tool results before returning to the model → N/A here (results are
+   aggregate business numbers, not secrets/PII).
+5. **Rate-limit tool calls** — cap the orchestration loop at a small max number of
+   tool-call round-trips (e.g. 4) per question, to prevent a runaway loop.
+6. **Invalid/out-of-range args return a structured error result** (`{error: true,
+   message, code}`), not an exception — the model reads it and asks the user a
+   clarifying question on its next turn. This is how ambiguous-query handling is
+   implemented: no separate "ambiguity detector" needed, just correct error handling
+   on the existing tool-call loop.
 
 ### `query_analytics` tool
 
