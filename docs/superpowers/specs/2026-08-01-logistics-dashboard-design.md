@@ -387,11 +387,33 @@ table and the charts (one visual language, not two).
 
 Grounded in the `emil-design-eng` and `apple-design` skills, not vibes:
 
-- **Color**: accent `#17F082` used sparingly (primary CTA on Ask AI, active-nav
-  indicator, "delivered" status) — neutrals (`#0A0A0A`/`#F8F8F8`/`#FFFFFF`) cover
-  ~90% of the surface. Status ramp reused identically across table badges and chart
-  series: canceled `#A3A3A3`, in_transit `#3B82F6`, delivered `#17F082`, delayed
-  `#F59E0B`, exception `#EF4444`.
+- **Color**: accent `#17F082` used sparingly for **UI chrome only** (primary CTA on
+  Ask AI, active-nav indicator, logo) — neutrals (`#0A0A0A`/`#F8F8F8`/`#FFFFFF`)
+  cover ~90% of the surface. **Data/chart colors are a separate, validated set — not
+  the brand green** (checked with the `dataviz` skill's `validate_palette.js`; the
+  brand green failed the chart-mark lightness check, and a plain gray for "canceled"
+  failed the categorical chroma floor). Status ramp, reused identically across table
+  badges and chart series:
+  - delivered → **good** `#0ca30c`
+  - delayed → **warning** `#fab219`
+  - exception → **critical** `#d03b3b`
+  - in_transit → categorical slot 1 (blue) `#2a78d6` — neutral in-progress state, not
+    a good/bad judgment, so it doesn't belong in the status ramp
+  - canceled → **not a data color at all** — muted/secondary text token, since it's
+    an inactive/excluded state, not a category competing for chart attention
+  - Dark-mode steps for these are defined too (`#3987e5` for in_transit; the four
+    status hexes are mode-invariant) even though a dark-mode *toggle* isn't being
+    built — tokens are dark-ready at near-zero extra cost, the toggle UI itself is
+    out of scope (see "Explicitly out of scope").
+  - **Mandatory mitigation, not optional**: warning/critical fall under 3:1 contrast
+    on the light surface *by design* in the validated palette — every status badge
+    and legend entry must pair the color with an icon + text label, never color
+    alone. This was already the plan (cva status badges) — now it's a hard
+    requirement, not a nice-to-have.
+  - Carrier-breakdown and other single-metric ranking charts use **one consistent
+    hue** (categorical slot 1 blue) for all bars — color isn't carrying per-carrier
+    identity there (the axis labels already do), so a different color per bar would
+    be noise, not signal.
 - **Elevation**: soft shadow, not a hard border, for card edges —
   `0 1px 2px rgba(0,0,0,.04), 0 1px 8px rgba(0,0,0,.04)`. Emil's skill names "solid
   border instead of semi-transparent shadow" explicitly as a bad-taste tell.
