@@ -175,6 +175,31 @@ bookkeeping layer needed:
 - `queryPlan` — the structured tool-call args themselves (this *is* the query plan)
 - `table` — the raw aggregated rows backing the chart/answer
 
+The spec says *"every answer **or chart**"* — this applies to the Dashboard's own
+charts too, not just Ask AI results. Each dashboard chart gets a small muted caption
+(active date-range filter + metric/groupBy, e.g. "Jan–Dec 2025 · count grouped by
+week") and a "view data" icon that opens the same underlying-table view used on Ask
+AI — same component, just collapsed by default instead of always-open, since these
+charts are seen far more often (every dashboard load) than an Ask AI answer (see the
+motion-frequency reasoning above — frequently-seen UI should default to quiet).
+
+### Dynamic chart-type selection rule
+
+Locked-in mapping from a computed result shape to a chart type — this is what makes
+selection "automatic" rather than the model guessing a chart component:
+
+| Result shape | Chart |
+|---|---|
+| Single scalar (no `groupBy`) | Stat/number display, no chart |
+| `groupBy` is a time bucket (week/month) | Line chart |
+| `groupBy` is a category (carrier/region/product_category/sku/destination_city) | Bar chart |
+| Question is a superlative ("highest/lowest") | Bar chart, sorted, top item highlighted |
+| `forecast_demand` result | Line chart, historical segment solid, forecast segment dashed |
+
+This is plain code (a switch on `groupBy`/metric shape), not a second LLM call —
+consistent with "AI never generates answers without computation": the chart-type
+choice is deterministic given the query shape, not guessed.
+
 ## Product & UX
 
 ### Component stack (from the emil-design-eng `pick-ui-library` skill — a curated,
