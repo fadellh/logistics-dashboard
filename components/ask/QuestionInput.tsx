@@ -11,6 +11,15 @@ export function QuestionInput({
   value?: string;
 }) {
   const [text, setText] = useState(value ?? "");
+  // ponytail: React's documented "adjust state during render" pattern
+  // (https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes)
+  // instead of useEffect — this project's lint config (react-hooks/set-state-in-effect)
+  // errors on setState-in-effect, and this avoids the extra-render effect penalty anyway.
+  const [prevValue, setPrevValue] = useState(value);
+  if (value !== prevValue) {
+    setPrevValue(value);
+    setText(value ?? "");
+  }
 
   function submit() {
     if (!text.trim() || disabled) return;

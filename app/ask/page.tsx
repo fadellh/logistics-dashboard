@@ -18,14 +18,29 @@ export default function AskPage() {
       { role: "assistant" as const, content: t.result.answer },
     ]);
 
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, history }),
-    });
-    const result: AskResult = await res.json();
-    setTurns((prev) => [...prev, { question, result }]);
-    setLoading(false);
+    try {
+      const res = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, history }),
+      });
+      if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+      const result: AskResult = await res.json();
+      setTurns((prev) => [...prev, { question, result }]);
+    } catch {
+      const result: AskResult = {
+        answer: "Something went wrong answering that question. Please try again.",
+        chart: null,
+        queryPlan: null,
+        filters: null,
+        metric: null,
+        groupBy: null,
+        table: null,
+      };
+      setTurns((prev) => [...prev, { question, result }]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (
