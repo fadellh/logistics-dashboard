@@ -1,14 +1,18 @@
 "use client";
 import { useState } from "react";
+import type { Metric } from "../../lib/queries/schemas";
+import { formatMetricValue } from "../../lib/format/metricLabels";
 
 export function ExplainCaption({
   filterLabel,
   metricLabel,
   rows,
+  metric,
 }: {
   filterLabel: string;
   metricLabel: string;
   rows: { label: string; value: number }[];
+  metric?: Metric;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -29,7 +33,7 @@ export function ExplainCaption({
             {rows.map((r) => (
               <tr key={r.label} className="border-t border-black/5">
                 <td className="py-1 pr-4">{r.label}</td>
-                <td className="py-1">{r.value}</td>
+                <td className="py-1">{metric ? formatMetricValue(metric, r.value) : r.value}</td>
               </tr>
             ))}
           </tbody>

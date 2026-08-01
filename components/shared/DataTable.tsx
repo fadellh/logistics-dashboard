@@ -1,4 +1,13 @@
-export function DataTable({ rows }: { rows: { label: string; value: number }[] }) {
+import type { Metric } from "../../lib/queries/schemas";
+import { formatMetricValue } from "../../lib/format/metricLabels";
+
+export function DataTable({
+  rows,
+  metric,
+}: {
+  rows: { label: string; value: number }[];
+  metric?: Metric;
+}) {
   return (
     <table className="w-full text-left text-sm">
       <thead>
@@ -11,7 +20,7 @@ export function DataTable({ rows }: { rows: { label: string; value: number }[] }
         {rows.map((r) => (
           <tr key={r.label} className="border-t border-black/5">
             <td className="py-1.5 pr-4">{r.label}</td>
-            <td className="py-1.5">{r.value}</td>
+            <td className="py-1.5">{metric ? formatMetricValue(metric, r.value) : r.value}</td>
           </tr>
         ))}
       </tbody>

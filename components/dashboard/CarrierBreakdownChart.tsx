@@ -10,14 +10,19 @@ export function CarrierBreakdownChart({ data, filterLabel }: { data: QueryResult
       <div className="mt-4 h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data.map((r) => ({ x: r.label, y: r.value }))} layout="vertical">
-            <XAxis type="number" tick={{ fontSize: 11 }} stroke="var(--color-text-muted)" />
+            <XAxis
+              type="number"
+              tick={{ fontSize: 11 }}
+              stroke="var(--color-text-muted)"
+              tickFormatter={(v) => `${(v * 100).toFixed(0)}%`}
+            />
             <YAxis type="category" dataKey="x" tick={{ fontSize: 11 }} width={80} stroke="var(--color-text-muted)" />
             <Tooltip />
             <Bar dataKey="y" fill="var(--status-info)" radius={[0, 6, 6, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
-      <ExplainCaption filterLabel={filterLabel} metricLabel="delay rate grouped by carrier" rows={data} />
+      <ExplainCaption filterLabel={filterLabel} metricLabel="delay rate grouped by carrier" rows={data} metric="delay_rate" />
     </div>
   );
 }

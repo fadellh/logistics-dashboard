@@ -3,6 +3,9 @@ import { useState } from "react";
 import { DataTable } from "@/components/shared/DataTable";
 import { METRIC_LABELS } from "@/lib/format/metricLabels";
 import type { AskResult } from "@/lib/ai/orchestrate";
+import type { Metric } from "@/lib/queries/schemas";
+
+const RATE_METRICS = new Set<string>(["on_time_rate", "delay_rate"]);
 
 export function ExplainabilityPanel({ result }: { result: AskResult }) {
   const [showDetails, setShowDetails] = useState(false);
@@ -11,6 +14,8 @@ export function ExplainabilityPanel({ result }: { result: AskResult }) {
   if (!result.queryPlan) return null; // decline/clarification responses have nothing to explain
 
   const metricLabel = result.metric ? METRIC_LABELS[result.metric as keyof typeof METRIC_LABELS] : null;
+  const rateMetric =
+    result.metric && RATE_METRICS.has(result.metric) ? (result.metric as Metric) : undefined;
 
   return (
     <div className="mt-4 border-t border-black/5 pt-3 text-sm">
@@ -42,7 +47,7 @@ export function ExplainabilityPanel({ result }: { result: AskResult }) {
           </div>
 
           {Array.isArray(result.table) && result.table.length > 0 && (
-            <DataTable rows={result.table as { label: string; value: number }[]} />
+            <DataTable rows={result.table as { label: string; value: number }[]} metric={rateMetric} />
           )}
 
           <button
