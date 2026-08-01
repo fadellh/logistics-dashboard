@@ -209,7 +209,10 @@ From `phases/11-llm-engineering/09-function-calling/docs/en.md` ("Security: The
 Non-Negotiable Rules" + "Error Handling"):
 
 1. Never pass model-generated SQL to the DB → Drizzle allowlisted queries only.
-2. Allowlist functions, no generic "execute anything" tool → exactly 2 tools exist.
+2. Allowlist functions, no generic "execute anything" tool → exactly 3 named tools
+   exist (`query_analytics`, `forecast_demand`, `compare_metric`), each atomic with a
+   tight "Use when X. Do not use for Y." description — see the tool-schema-design
+   note under `compare_metric` below for why atomic beats one tool with a mode switch.
 3. Validate every argument → Zod schemas on both tool inputs.
 4. Sanitize tool results before returning to the model → N/A here (results are
    aggregate business numbers, not secrets/PII).
@@ -267,6 +270,61 @@ over moving average because the spec's example question ("predict demand for the
 next 4 months") implies a genuine trend projection, not a flat repeat of a recent
 average.
 
+### `compare_metric` tool — the bounded answer to "Diagnostic Analytics: explaining why"
+
+The spec's Core Concept section names "Diagnostic Analytics — explaining why" as one
+of three required levels of intelligence, but all three of the spec's own example
+questions are descriptive lookups ("show X", "which Y", "how many Z"), not causal
+"why" questions. Genuine causal explanation (e.g. "why was DHL delayed in November")
+would need root-cause data — incident reasons, weather, route-specific events — that
+doesn't exist in this dataset. Letting the model freely narrate a cause anyway would
+be the exact failure mode the spec warns against ("AI must never generate answers
+without computation") — pure hallucination dressed as an explanation.
+
+The honest, computable middle ground: surface *deviation from a baseline*. Not a
+cause, but the first real step of diagnosis — "is this actually unusual?" — answered
+with two real numbers, not a narrative.
+
+**Why a separate tool, not a `compareTo` param bolted onto `query_analytics`** (this
+was the original plan — revised after checking `ai-engineering-from-scratch`,
+`phases/13-tools-and-protocols/05-tool-schema-design/docs/en.md`, "Atomic vs
+monolithic"): a tool whose behavior branches on a mode-switch argument is measurably
+worse for tool-selection accuracy than two atomic tools with distinct, disambiguating
+descriptions — *"benchmarks show 15 to 30 percent worse selection on monolithic
+tools... if the `action` argument has more than three values, split the tool."*
+`compareTo` would have made `query_analytics` carry two different behaviors under one
+name. A dedicated tool with a "Use when X. Do not use for Y." description (the same
+lesson's pattern, cited as taking one benchmark registry's selection accuracy from
+62% to 89%) is the better-grounded choice, not just the more elegant one.
+
+```ts
+{
+  name: "compare_metric",
+  description: "Use when the user asks why a metric looks unusually high or low, or
+                wants to compare a value against a baseline (previous period or
+                overall average). Do not use for simple aggregation or breakdown
+                questions — use query_analytics for those.",
+  args: {
+    metric,       // same enum as query_analytics — single source of truth, not duplicated
+    filters,      // same shape as query_analytics — the "primary" scope
+    compareTo: "overall_average" | "previous_period",  // required, not optional —
+                                                          // this tool's whole purpose
+  }
+}
+```
+
+Implementation reuses the *same* aggregation function `query_analytics` already calls
+— run it twice (once with `filters`, once with a derived baseline scope), diff the
+two results. No new query logic, just new orchestration around the existing one.
+`overall_average` drops the narrowing filter for the baseline call; `previous_period`
+shifts `dateRange` back by an equal span. Answer template:
+`` `${metricLabel} for ${scope} is ${primary}, ${up|down} from ${baseline} in
+${baselineLabel} (${delta}).` ``
+
+True causal "why" (a specific incident/root cause) stays explicitly out of scope and
+is documented as such in the README — this tool answers "is this unusual and by how
+much", not "what caused it".
+
 ## Explainability
 
 Every AI response returns, verbatim from the tool call and computation — no extra
@@ -296,6 +354,7 @@ selection "automatic" rather than the model guessing a chart component:
 | `groupBy` is a category (carrier/region/product_category/sku/destination_city) | Bar chart |
 | Question is a superlative ("highest/lowest") | Bar chart, sorted, top item highlighted |
 | `forecast_demand` result | Line chart, historical segment solid, forecast segment dashed |
+| `compare_metric` result | Two-bar comparison (primary vs baseline), delta labeled |
 
 This is plain code (a switch on `groupBy`/metric shape), not a second LLM call —
 consistent with "AI never generates answers without computation": the chart-type
@@ -369,10 +428,12 @@ consistency that's only checkable once real.
   breakdown (horizontal bar) — matches all three examples the spec itself lists,
   cheap to add since it's the same query function with a different `groupBy`.
 
-**2. Ask AI (`/ask`)** — diagnostic + forecasting, single page for both (same tool-
-calling loop routes to either tool):
+**2. Ask AI (`/ask`)** — diagnostic + forecasting, single page for all three tools
+(same tool-calling loop routes to whichever fits):
 - Input box + a handful of clickable example questions (the spec's own 3 examples +
-  one forecast example) — doubles as a guaranteed happy-path for reviewers.
+  one forecast example + one comparison example, e.g. "Why does DHL's delay rate
+  look high this month?") — doubles as a guaranteed happy-path for reviewers, and
+  specifically proves the diagnostic tier works, not just query/forecast.
 - Each question renders as one result card: answer text → chart (if any) →
   collapsible explainability panel → for forecast results, additionally the
   inventory recommendation and methodology note.
