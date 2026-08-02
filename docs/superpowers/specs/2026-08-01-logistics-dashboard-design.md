@@ -559,6 +559,46 @@ doc).
   answers append below" to the standard chat layout (messages scroll above, input
   sticky at the bottom, auto-scroll to newest turn) — pure UX preference, the spec
   doesn't dictate layout. User feedback after using the deployed app.
+- **`compare_metric` answer template: added a deterministic rationale clause, fixed
+  an equal-value wording bug.** User feedback: "why" answers felt too stiff —
+  jumping straight to a number with no elaboration of why that metric/formula was
+  used. Investigated whether the `ai-engineering-from-scratch` reference supports
+  adding explanatory depth without reintroducing a second LLM call (this project's
+  non-negotiable): `phases/14-agent-engineering/01-the-agent-loop/docs/en.md:90`
+  describes the ReAct "Thought → Action" pattern — the model's own rationale
+  emitted in the *same* turn as a tool call, not a follow-up call — which is
+  consistent with the non-negotiable rather than a reason to violate it.
+  `phases/18-ethics-safety-alignment/02-reward-hacking-goodhart/docs/en.md:42`
+  names "verbosity bias" explicitly (longer ≠ better), arguing against padding
+  answers with generic elaboration. Net: enriched `composeCompareAnswer` (still
+  100% deterministic templates, zero LLM risk) with a fixed one-line rationale per
+  metric explaining why it's a relevant signal for a deviation-from-baseline
+  question. Separately found and fixed a real bug during this pass: the template
+  said "up from X%" even when the current and baseline values were identical
+  (e.g. "17.4%, up from 17.4%") — now compares formatted display values and says
+  "in line with" when they match. Also tightened `systemPrompt.ts` and
+  `compare_metric`'s tool description: the model was silently substituting
+  `delay_rate` when asked why order *count* looked high (compare_metric can't
+  check count/sum_order_value at all) instead of saying so — and was misfiring a
+  tool call on vague conversational follow-ups ("so what do you mean?") instead
+  of replying in plain text from context. Both are now explicit instructions.
+- **`compare_metric` root-cause fix: `overall_average` baseline was sometimes
+  identical to the primary query.** The wording fix above (masking equal values as
+  "in line with") treated the symptom; the actual defect was in
+  `lib/queries/compare.ts`'s `runCompareMetric`. For `compareTo: "overall_average"`,
+  the baseline filters kept the primary's `dateRange` and only dropped other
+  filters (carrier/region/etc.) — so a question scoped by date alone (no carrier)
+  ran the exact same query twice, making every such comparison a tautological
+  0-delta rather than an actual finding. Verified against the live DB: a January-only
+  `delay_rate` compare returned primary=baseline=17.4% before the fix, and
+  primary=17.4%/baseline=15.3% (the real whole-year average) after. Fix: baseline
+  filters for `overall_average` are now always `undefined` (the true unfiltered
+  average), never partially reused from the primary filters. The one remaining
+  degenerate case — a compare question with zero filters at all (no date, no
+  dimension) — still ties trivially (whole dataset vs. itself), but that's an
+  inherently unscoped "why" question with no baseline concept to compare against;
+  not handled specially, consistent with not over-engineering for a case the
+  system prompt already discourages.
 - **Considered and declined**: a dedicated raw-data table page (the spec's
   Explainability requirement — "access to the underlying data as a table or
   summary" — is already satisfied by the existing per-answer/per-chart "How I

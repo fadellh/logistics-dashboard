@@ -36,7 +36,11 @@ export async function runCompareMetric(args: CompareMetricArgs): Promise<Compare
   let baselineLabel: string;
 
   if (args.compareTo === "overall_average") {
-    baselineFilters = args.filters?.dateRange ? { dateRange: args.filters.dateRange } : undefined;
+    // Always the true unfiltered average. Reusing part of args.filters here (e.g. keeping
+    // the same dateRange) can make baselineFilters identical to args.filters whenever there's
+    // no other filter to drop — primary and baseline then run the exact same query, so the
+    // "comparison" is a tautological 0-delta rather than an actual finding.
+    baselineFilters = undefined;
     baselineLabel = "overall average";
   } else {
     if (!args.filters?.dateRange) {

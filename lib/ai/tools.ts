@@ -70,7 +70,7 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
     function: {
       name: "compare_metric",
       description:
-        "Use when the user asks why a metric looks unusually high or low, or wants to compare a value against a baseline (previous period or overall average). Do not use for simple aggregation or breakdown questions — use query_analytics for those.",
+        "Use when the user asks why a metric looks unusually high or low, or wants to compare a value against a baseline (previous period or overall average). Only supports on_time_rate, delay_rate, and avg_delivery_time — never count or sum_order_value; do not call this as a silent substitute when asked why order count/volume/value looks high, tell the user directly that count can't be checked this way first. Do not use for simple aggregation or breakdown questions — use query_analytics for those.",
       parameters: {
         type: "object",
         properties: {
