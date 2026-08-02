@@ -10,6 +10,8 @@ const FILTERS_PROPERTY = {
       enum: ["delivered", "delayed", "in_transit", "exception", "canceled"],
     },
     productCategory: { type: "string" as const, description: "e.g. PAPER, PENCIL, PAINT, BRUSH, BOOK, MARKER, CRAYON, STICKER." },
+    sku: { type: "string" as const, description: "Exact SKU code, e.g. PAPER-0197. Use this to scope to one specific SKU — do not approximate a SKU with productCategory, they are different dimensions." },
+    destinationCity: { type: "string" as const, description: "Exact destination city name, e.g. Boston, Zurich." },
     dateRange: {
       type: "object" as const,
       properties: {

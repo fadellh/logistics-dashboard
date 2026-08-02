@@ -14,6 +14,14 @@ test("describeFilters joins present filters, dateRange included", () => {
   );
 });
 
+// Regression test: sku/destinationCity were valid groupBy dimensions but missing as
+// filters, so a question scoped to one SKU (e.g. "MARKER-0138") had no way to narrow
+// down to it and silently dropped the scope or approximated with productCategory.
+test("describeFilters includes sku and destinationCity", () => {
+  assert.equal(describeFilters({ sku: "MARKER-0138" }), " (MARKER-0138)");
+  assert.equal(describeFilters({ destinationCity: "Boston" }), " (Boston)");
+});
+
 test("composeQueryAnswer restates filter scope for a flat (no groupBy) result", () => {
   const answer = composeQueryAnswer(
     { metric: "delay_rate", filters: { dateRange: { from: "2025-01-01", to: "2025-01-31" } } },

@@ -45,6 +45,8 @@ function buildFilters(args: QueryAnalyticsArgs): SQL | undefined {
   if (f?.region) conds.push(eq(orders.region, f.region));
   if (f?.status) conds.push(eq(orders.status, f.status));
   if (f?.productCategory) conds.push(eq(orders.productCategory, f.productCategory));
+  if (f?.sku) conds.push(eq(orders.sku, f.sku));
+  if (f?.destinationCity) conds.push(eq(orders.destinationCity, f.destinationCity));
   if (f?.dateRange) {
     conds.push(gte(orders.orderDate, f.dateRange.from));
     conds.push(lte(orders.orderDate, f.dateRange.to));

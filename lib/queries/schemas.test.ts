@@ -21,6 +21,14 @@ test("accepts a valid query with filters", () => {
   assert.equal(result.success, true);
 });
 
+test("accepts sku and destinationCity as filters", () => {
+  const result = queryAnalyticsArgsSchema.safeParse({
+    metric: "sum_order_value",
+    filters: { sku: "MARKER-0138", destinationCity: "Boston" },
+  });
+  assert.equal(result.success, true);
+});
+
 test("forecast requires sku or productCategory", () => {
   const result = forecastDemandArgsSchema.safeParse({ horizonMonths: 3 });
   assert.equal(result.success, false);

@@ -15,6 +15,8 @@ export function describeFilters(filters?: Filters): string {
   if (filters.carrier) parts.push(filters.carrier);
   if (filters.region) parts.push(filters.region);
   if (filters.productCategory) parts.push(filters.productCategory);
+  if (filters.sku) parts.push(filters.sku);
+  if (filters.destinationCity) parts.push(filters.destinationCity);
   if (filters.status) parts.push(filters.status);
   if (filters.dateRange) parts.push(`${filters.dateRange.from} to ${filters.dateRange.to}`);
   return parts.length ? ` (${parts.join(", ")})` : "";

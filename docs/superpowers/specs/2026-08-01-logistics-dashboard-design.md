@@ -599,6 +599,31 @@ doc).
   inherently unscoped "why" question with no baseline concept to compare against;
   not handled specially, consistent with not over-engineering for a case the
   system prompt already discourages.
+- **`query_analytics`/`compare_metric` filters gained `sku` and `destinationCity`.**
+  User feedback: a multi-turn conversation asking about a specific SKU
+  ("MARKER-0138") got increasingly incoherent answers. Reproduced directly against
+  `orchestrate()` (not guessed from screenshots): the model's actual tool-call args
+  showed `filters: {"productCategory": "MARKER"}` (approximating a single SKU with
+  its entire category — wrong scope) and, on a later turn, `filters: {}` (silently
+  dropping a SKU the user had just named explicitly in that same message). Root
+  cause: `sku` and `destinationCity` were already valid `groupBy` values but were
+  never added as `filters` — the only way to narrow to *one* SKU or destination
+  city, as opposed to breaking a metric down across all of them. Checked against
+  `phases/13-tools-and-protocols/05-tool-schema-design/docs/en.md:109` ("Add
+  optional parameters freely. Safe.") — same category of change as the earlier
+  `limit` addition, not the monolithic-tool anti-pattern that sank `compareTo`.
+  Fixed by adding both to `filtersSchema`/`FILTERS_PROPERTY`.
+  **Explicitly did not** add filters/metrics for the dataset's other raw columns
+  (`order_id`, `delivery_date`, `origin_city`, `quantity`, `unit_price_usd`,
+  `is_promo`, `promo_discount_pct`, `warehouse`) despite them being real columns —
+  no question in this project (or the spec's own examples) has ever demonstrated a
+  need for them, and the same tool-schema-design lesson notes registries with
+  unclear/unnecessary options measurably hurt tool-selection accuracy (a 50-tool
+  registry with ambiguous scoping dropped to 62% selection accuracy). Instead,
+  `systemPrompt.ts` gained an explicit instruction: state plainly which columns
+  exist but aren't queryable, and never approximate one with an unrelated
+  dimension or guess a number — the SKU bug's failure mode, generalized as a
+  standing guardrail rather than something only SKU is protected against.
 - **Considered and declined**: a dedicated raw-data table page (the spec's
   Explainability requirement — "access to the underlying data as a table or
   summary" — is already satisfied by the existing per-answer/per-chart "How I

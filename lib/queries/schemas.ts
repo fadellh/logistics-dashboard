@@ -21,6 +21,11 @@ export const filtersSchema = z
     region: z.string().optional(),
     status: statusEnum.optional(),
     productCategory: z.string().optional(),
+    // sku/destinationCity: both are already valid groupBy dimensions but were missing
+    // here as filters — the only way to narrow down to one SKU or one destination city
+    // (as opposed to breaking a metric down across all of them).
+    sku: z.string().optional(),
+    destinationCity: z.string().optional(),
     dateRange: dateRangeSchema.optional(),
   })
   .optional();

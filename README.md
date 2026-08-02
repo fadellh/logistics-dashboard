@@ -202,6 +202,17 @@ runaway loop.
   rather than answered with a plausible-sounding guess; see Limitations above.
 - Multi-category "forecast everything" requests — forecasting is scoped to one SKU
   or one product category at a time, matching the spec's own example.
+- Some raw dataset columns exist but aren't queryable through any tool: `order_id`
+  (single-record lookup, not an analytics dimension), `delivery_date`, `origin_city`,
+  `quantity`, `unit_price_usd`, `is_promo`, `promo_discount_pct`, and `warehouse` —
+  none of these is a supported metric, groupBy, or filter. Deliberately out of scope
+  rather than an oversight: `carrier`/`region`/`status`/`productCategory`/`sku`/
+  `destinationCity`/date range cover every question the spec's own examples ask for;
+  the rest were added, or left out, only once a real question demonstrated the need
+  (see the design spec's Post-launch amendments for the SKU-filter case that prompted
+  this). Asked about any of the unsupported columns, the AI declines by name and
+  states what it can check instead — it does not approximate with an unrelated
+  dimension or guess a number.
 
 ## Future Improvements
 

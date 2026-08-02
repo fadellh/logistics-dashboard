@@ -4,7 +4,7 @@
 // the live DeepSeek model against the real database — it costs a little money and isn't
 // fully deterministic, so it's a manual pre-submission check, not a CI gate.
 //
-// ~14 hand-picked cases: one happy path per tool (mirroring the spec's own example
+// ~16 hand-picked cases: one happy path per tool (mirroring the spec's own example
 // questions), plus one case per real production bug found and fixed during this
 // project (see my-learn-as-ai-engineer.md sections 10-12 for the reasoning and the
 // citation to phases/14-agent-engineering/30-eval-driven-agent-development/docs/en.md
@@ -138,6 +138,28 @@ const CASES: EvalCase[] = [
       return calledToolAgain || admitsGap
         ? null
         : `answer may have fabricated data beyond the single known result: "${r.answer}"`;
+    },
+  },
+  {
+    name: "regression: SKU-specific question must filter by sku, not approximate with productCategory",
+    turns: ["What's the total order value for SKU MARKER-0138?"],
+    check: (r) => {
+      const filters = queryPlanField(r, "filters");
+      const sku = (filters as Record<string, unknown> | undefined)?.sku;
+      return sku === "MARKER-0138" ? null : `expected filters.sku="MARKER-0138", got filters=${JSON.stringify(filters)}`;
+    },
+  },
+  {
+    name: "regression: asking about an unsupported raw column declines by name, doesn't approximate",
+    // quantity/unit_price/warehouse/etc. exist in the raw table but aren't a supported
+    // metric, groupBy, or filter. The AI should say so plainly, not silently substitute
+    // an unrelated dimension or guess a number.
+    turns: ["What's the average unit price for orders from the East warehouse?"],
+    check: (r) => {
+      const declined = /warehouse|unit.?price|can't|cannot|don't have|not (currently )?(queryable|supported|available)/i.test(
+        r.answer
+      );
+      return declined ? null : `answer doesn't acknowledge the unsupported columns: "${r.answer}"`;
     },
   },
 ];
