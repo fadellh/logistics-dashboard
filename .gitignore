@@ -21,3 +21,4 @@ build/
 
 # personal learning notes (not part of the product)
 my-learn-as-ai-engineer.md
+*.tsbuildinfo
