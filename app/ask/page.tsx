@@ -40,7 +40,12 @@ export default function AskPage() {
   // (turns still []) would overwrite the saved conversation before it's loaded.
   useEffect(() => {
     if (!hydrated) return;
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(turns));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(turns));
+    } catch {
+      // Storage unavailable (e.g., Safari private browsing, storage quota
+      // exceeded) — fail silently, same as read-effect. Non-critical persistence.
+    }
   }, [turns, hydrated]);
 
   useEffect(() => {
@@ -81,7 +86,6 @@ export default function AskPage() {
 
   function newChat() {
     setTurns([]);
-    localStorage.removeItem(STORAGE_KEY);
   }
 
   return (
