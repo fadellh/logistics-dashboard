@@ -60,9 +60,13 @@ swap provider by changing `baseURL`/`model` in one place) · Recharts · base-ui
   devices. A "New chat" control clears both in-memory state and the localStorage
   key. Chosen over DB-backed persistence specifically to avoid a second
   "no mutation endpoints" reversal — see
-  `~/fadel/ai-engineering-from-scratch/phases/14-agent-engineering/07-memory-virtual-context-memgpt/docs/en.md:23,75`
-  (session-scoped memory is the correct default; persistence beyond it is an
-  optional upgrade layer, not a missing requirement).
+  `~/fadel/ai-engineering-from-scratch/phases/14-agent-engineering/07-memory-virtual-context-memgpt/docs/en.md:17-23`
+  (the lesson frames persistence as a failure mode that needs deliberate
+  external-memory infrastructure to solve — "a new session starts with an
+  empty window" absent that. Our synthesis, not a literal course quote: for a
+  single-user, 3-tool take-home this implies ephemeral/session-scoped is the
+  free/default state, and durable persistence is the opt-in upgrade, not a
+  missing requirement).
 
 ## Skill usage
 

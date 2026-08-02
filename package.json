@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "seed": "tsx --env-file=.env lib/db/seed.ts",
-    "test": "node --import tsx --test lib/queries/*.test.ts"
+    "test": "node --import tsx --test lib/queries/*.test.ts lib/format/*.test.ts",
+    "eval:ai": "tsx --env-file=.env scripts/eval-ask-ai.ts"
   },
   "dependencies": {
     "@base-ui-components/react": "^1.0.0-rc.0",
