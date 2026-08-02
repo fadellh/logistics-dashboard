@@ -193,6 +193,13 @@ runaway loop.
   reports a 0 rate, which is indistinguishable from a genuinely low rate — treat a
   `compare_metric` result of exactly 0 with the same caution as any other small-sample
   statistic.
+- **Individual-SKU forecasts need that SKU to have ≥2 months of order history** —
+  with 400 orders spread across many SKUs, most individual SKUs only have 1-3
+  months, so a forecast for an arbitrary/random SKU will often correctly decline
+  with "not enough historical data" rather than produce a number. Product
+  category forecasts don't have this problem (every category has 10-12 months of
+  history) — prefer a category when trying the forecasting tool, or check a
+  SKU's order count first if you want a specific one to work.
 
 ### Unsupported Features or Queries
 

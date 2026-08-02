@@ -4,7 +4,7 @@ const EXAMPLES = [
   "Show delayed orders by week for the last 3 months",
   "Which carrier has the highest delay rate?",
   "How many orders were delivered late last month?",
-  "Predict demand for SKU PAPER-0197 for the next 4 months",
+  "Predict demand for the CRAYON product category for the next 4 months",
   "Why does DHL's delay rate look high this month?",
 ];
 
