@@ -8,6 +8,7 @@ recommendation).
 
 - **Live app**: https://logistics-dashboard-roan.vercel.app/
 - **Repository**: https://github.com/fadellh/logistics-dashboard
+- **Login (guest)**: password `spaceship-guest-2026`
 
 > Design reasoning for every non-obvious decision in this document lives in
 > [`docs/superpowers/specs/2026-08-01-logistics-dashboard-design.md`](docs/superpowers/specs/2026-08-01-logistics-dashboard-design.md).
@@ -23,10 +24,10 @@ recommendation).
 git clone https://github.com/fadellh/logistics-dashboard
 cd logistics-dashboard
 npm install
-cp .env.example .env       # fill in DATABASE_URL and DEEPSEEK_API_KEY
+cp .env.example .env       # fill in DATABASE_URL, DEEPSEEK_API_KEY, and the auth vars below
 npx drizzle-kit push       # create the orders table from lib/db/schema.ts
 npm run seed                # load mock_logistics_data.csv into the DB
-npm run dev                 # http://localhost:3000
+npm run dev                 # http://localhost:3000 — redirects to /login
 npm test                    # runs the node:test suites (no DB/.env required)
 ```
 
@@ -36,10 +37,20 @@ npm test                    # runs the node:test suites (no DB/.env required)
 |---|---|
 | `DATABASE_URL` | Neon Postgres connection string (serverless driver, pooling built in) |
 | `DEEPSEEK_API_KEY` | DeepSeek API key — used via the OpenAI SDK with a custom `baseURL`, so swapping providers (OpenAI/Grok/etc.) is a one-line change in `lib/ai/client.ts` |
+| `ADMIN_PASSWORD` | Owner login password |
+| `GUEST_PASSWORD` | Reviewer login password (see the credential in the Live App link above) |
+| `SESSION_SECRET` | Random string gating the session cookie — not a per-user secret, both roles get identical app access |
 
-No authentication — this is a read-only public demo; the spec allows omitting auth
-when it isn't used, which removes an entire category of deployment/credential risk.
-No secrets are committed; `.env` is gitignored.
+**Authentication (added post-launch):** originally the app shipped with no auth
+(a spec-permitted simplification — "if authentication is used, provide test
+credentials" implies it's optional). Reversed after the deployed URL became a
+public, unauthenticated endpoint calling a paid LLM API — a real prompt-injection
+and cost-abuse surface. Two hardcoded credentials (no user table, no OAuth) behind
+a Next.js middleware gate; both roles get identical access — the split exists only
+so the reviewer's credential can be rotated/revoked independently of the owner's.
+See the design spec's "Post-launch amendments" section for the full reasoning and
+the reversal of the original "no auth" decision. No secrets are committed; `.env`
+is gitignored.
 
 ## Architecture
 
