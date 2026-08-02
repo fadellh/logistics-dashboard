@@ -4,7 +4,7 @@
 // the live DeepSeek model against the real database — it costs a little money and isn't
 // fully deterministic, so it's a manual pre-submission check, not a CI gate.
 //
-// ~16 hand-picked cases: one happy path per tool (mirroring the spec's own example
+// ~18 hand-picked cases: one happy path per tool (mirroring the spec's own example
 // questions), plus one case per real production bug found and fixed during this
 // project (see my-learn-as-ai-engineer.md sections 10-12 for the reasoning and the
 // citation to phases/14-agent-engineering/30-eval-driven-agent-development/docs/en.md
@@ -160,6 +160,31 @@ const CASES: EvalCase[] = [
         r.answer
       );
       return declined ? null : `answer doesn't acknowledge the unsupported columns: "${r.answer}"`;
+    },
+  },
+  {
+    name: "regression: 'last month' must resolve consistently (anchored to the dataset's own date range)",
+    // Real bug: with no reference date, "last month" resolved to a different, essentially
+    // random month on every run (seen: Feb 2025, Dec 2025, Nov 2025 across identical
+    // questions). The dataset ends 2025-12-30, so "today" is pinned to 2025-12-31 and
+    // "last month" must always resolve to November 2025.
+    turns: ["How many orders were delivered late last month?"],
+    check: (r) => {
+      const dateRange = (queryPlanField(r, "filters") as { dateRange?: { from?: string; to?: string } } | undefined)
+        ?.dateRange;
+      return dateRange?.from === "2025-11-01" && dateRange?.to === "2025-11-30"
+        ? null
+        : `expected dateRange 2025-11-01..2025-11-30, got ${JSON.stringify(dateRange)}`;
+    },
+  },
+  {
+    name: "regression: a correction must update only what's disputed, not repeat the stale answer",
+    // Real bug: user corrected "delayed" to "delivered" and got back the exact same
+    // delayed-status answer as before, as if the correction was never read.
+    turns: ["How many orders were delivered late last month?", "I asked order that delivered"],
+    check: (r) => {
+      const filters = queryPlanField(r, "filters") as { status?: string } | undefined;
+      return filters?.status === "delivered" ? null : `expected filters.status="delivered", got ${JSON.stringify(filters)}`;
     },
   },
 ];
