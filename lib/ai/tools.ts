@@ -43,6 +43,13 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
             description: "Optional dimension to group results by.",
           },
           filters: FILTERS_PROPERTY,
+          limit: {
+            type: "integer",
+            minimum: 1,
+            maximum: 20,
+            description:
+              "Optional: return only the top N results by value, e.g. the user asks for 'top 3', 'best 5', 'only 3 results'. Only meaningful together with groupBy — ignored otherwise.",
+          },
         },
         required: ["metric"],
       },

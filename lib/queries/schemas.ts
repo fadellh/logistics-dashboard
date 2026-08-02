@@ -29,6 +29,9 @@ export const queryAnalyticsArgsSchema = z.object({
   metric: metricEnum,
   groupBy: groupByEnum.optional(),
   filters: filtersSchema,
+  // Only meaningful together with groupBy — "top 3 carriers", "best 5 SKUs". Capped at
+  // 20 since the dataset never has more than 9 distinct values for any groupable dimension.
+  limit: z.number().int().min(1).max(20).optional(),
 });
 
 export const forecastDemandArgsSchema = z

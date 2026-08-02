@@ -39,6 +39,53 @@ test("composeQueryAnswer reports no data instead of throwing on an empty result"
   assert.match(answer, /No data found/);
 });
 
+// Regression test for a real production gap: "give me the top 3" / "just give best 3"
+// always returned only the single highest row and rendered the full chart regardless.
+test("composeQueryAnswer lists all N rows when limit is set, not just the highest", () => {
+  const answer = composeQueryAnswer(
+    { metric: "on_time_rate", groupBy: "carrier", limit: 3 },
+    {
+      metric: "on_time_rate",
+      groupBy: "carrier",
+      rows: [
+        { label: "DPD", value: 1.0 },
+        { label: "DHL", value: 1.0 },
+        { label: "FedEx", value: 0.98 },
+      ],
+    }
+  );
+  assert.match(answer, /^Top 3 by/);
+  assert.match(answer, /DPD/);
+  assert.match(answer, /DHL/);
+  assert.match(answer, /FedEx/);
+});
+
+test("composeQueryAnswer without limit still reports only the single highest", () => {
+  const answer = composeQueryAnswer(
+    { metric: "on_time_rate", groupBy: "carrier" },
+    {
+      metric: "on_time_rate",
+      groupBy: "carrier",
+      rows: [{ label: "DPD", value: 1.0 }, { label: "DHL", value: 1.0 }],
+    }
+  );
+  assert.match(answer, /^DPD has the highest/);
+  assert.doesNotMatch(answer, /Top/);
+});
+
+test("composeQueryAnswer with limit=1 also uses the natural single-result phrasing", () => {
+  const answer = composeQueryAnswer(
+    { metric: "on_time_rate", groupBy: "carrier", limit: 1 },
+    {
+      metric: "on_time_rate",
+      groupBy: "carrier",
+      rows: [{ label: "DPD", value: 1.0 }],
+    }
+  );
+  assert.match(answer, /^DPD has the highest/);
+  assert.doesNotMatch(answer, /Top 1/);
+});
+
 test("composeForecastAnswer includes target, projection, and methodology", () => {
   const answer = composeForecastAnswer(
     { sku: "PAPER-0197", horizonMonths: 3 },

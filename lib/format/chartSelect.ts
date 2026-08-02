@@ -39,3 +39,22 @@ export function selectChartForCompare(
     baseline: { label: baselineLabel, value: baseline },
   };
 }
+
+// Appended to the answer text so a chart's existence survives into conversation history
+// (only answer text is resent as history, never the chart JSON) — without this, a
+// follow-up like "explain the chart" has nothing to ground itself in and the model
+// denies having shown one at all.
+export function describeChart(chart: ChartSpec): string {
+  switch (chart.kind) {
+    case "stat":
+      return "";
+    case "line":
+      return " (shown as a line chart over time)";
+    case "bar":
+      return " (shown as a bar chart)";
+    case "forecast-line":
+      return " (shown as a line chart with historical and forecasted values)";
+    case "compare-bar":
+      return " (shown as a bar chart comparing the current value against the baseline)";
+  }
+}

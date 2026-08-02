@@ -27,8 +27,17 @@ export function composeQueryAnswer(args: QueryAnalyticsArgs, result: QueryAnalyt
     return `${label}${scope}: ${formatMetricValue(args.metric, result.rows[0].value)}.`;
   }
   const sorted = [...result.rows].sort((a, b) => b.value - a.value);
+  if (sorted.length === 0) return `No data found for ${label.toLowerCase()}${scope} with the given filters.`;
+  // limit=1 reads as "Top 1 by X: 1. Y (Z%)" — clunkier than the natural single-result
+  // sentence below, and means the same thing, so fall through to it instead.
+  if (args.limit && args.limit > 1) {
+    const list = sorted
+      .slice(0, args.limit)
+      .map((r, i) => `${i + 1}. ${r.label} (${formatMetricValue(args.metric, r.value)})`)
+      .join(", ");
+    return `Top ${Math.min(args.limit, sorted.length)} by ${label.toLowerCase()}${scope}: ${list}.`;
+  }
   const top = sorted[0];
-  if (!top) return `No data found for ${label.toLowerCase()}${scope} with the given filters.`;
   return `${top.label} has the highest ${label.toLowerCase()}${scope} at ${formatMetricValue(args.metric, top.value)}.`;
 }
 

@@ -4,7 +4,7 @@
 // the live DeepSeek model against the real database — it costs a little money and isn't
 // fully deterministic, so it's a manual pre-submission check, not a CI gate.
 //
-// ~12 hand-picked cases: one happy path per tool (mirroring the spec's own example
+// ~14 hand-picked cases: one happy path per tool (mirroring the spec's own example
 // questions), plus one case per real production bug found and fixed during this
 // project (see my-learn-as-ai-engineer.md sections 10-12 for the reasoning and the
 // citation to phases/14-agent-engineering/30-eval-driven-agent-development/docs/en.md
@@ -110,6 +110,35 @@ const CASES: EvalCase[] = [
     name: "out-of-scope: data we don't have (profit margin) declines",
     turns: ["What's the profit margin per carrier?"],
     check: (r) => declines(r),
+  },
+  {
+    name: "regression: 'top 3' must pass limit, not just report the single highest",
+    turns: ["Who has the highest on-time rate?", "Just give me the top 3"],
+    check: (r) => (queryPlanField(r, "limit") === 3 ? null : answerContains(r, "Top 3", "top 3")),
+  },
+  {
+    name: "regression: 'explain the chart' must not deny having shown one",
+    turns: ["Which carrier has the highest delay rate?", "Explain more about the chart"],
+    check: (r) => {
+      const denies = /no (visual|chart)|don't have a (visual|chart)|not sure what (chart|graphic)/i.test(r.answer);
+      return denies ? `answer denies having a chart: "${r.answer}"` : null;
+    },
+  },
+  {
+    name: "regression: 'explain more' must not hallucinate a full breakdown it was never given",
+    // Real bug: the previous answer only ever states the single top row, but the model
+    // once fabricated plausible-sounding numbers for "the rest" of a 9-carrier ranking —
+    // inventing carrier names that don't even exist in this dataset. Correct behavior is
+    // either (a) call query_analytics again to actually get the other rows, or (b) admit
+    // it only has the one result and offer to fetch more — never invent the gap silently.
+    turns: ["Which carrier has the highest delay rate?", "Explain more about the chart"],
+    check: (r) => {
+      const calledToolAgain = queryPlanField(r, "tool") === "query_analytics";
+      const admitsGap = /pull|full breakdown|don't have|only (returned|gave|have)|would need/i.test(r.answer);
+      return calledToolAgain || admitsGap
+        ? null
+        : `answer may have fabricated data beyond the single known result: "${r.answer}"`;
+    },
   },
 ];
 

@@ -10,7 +10,7 @@ import {
 import { runQueryAnalytics } from "../queries/analytics";
 import { runForecastDemand, InsufficientDataError } from "../queries/forecast";
 import { runCompareMetric, CompareRequiresDateRangeError } from "../queries/compare";
-import { selectChartForQuery, selectChartForForecast, selectChartForCompare, type ChartSpec } from "../format/chartSelect";
+import { selectChartForQuery, selectChartForForecast, selectChartForCompare, describeChart, type ChartSpec } from "../format/chartSelect";
 import { composeQueryAnswer, composeForecastAnswer, composeCompareAnswer } from "../format/answerTemplates";
 
 export type ConversationTurn = { role: "user" | "assistant"; content: string };
@@ -105,9 +105,10 @@ export async function orchestrate(question: string, history: ConversationTurn[])
       if (call.function.name === "query_analytics") {
         const args = queryAnalyticsArgsSchema.parse(rawArgs);
         const result = await runQueryAnalytics(args);
+        const chart = selectChartForQuery(args.groupBy ?? null, result.rows);
         return {
-          answer: composeQueryAnswer(args, result),
-          chart: selectChartForQuery(args.groupBy ?? null, result.rows),
+          answer: composeQueryAnswer(args, result) + describeChart(chart),
+          chart,
           queryPlan: { tool: "query_analytics", ...args },
           filters: args.filters ?? null,
           metric: args.metric,
@@ -119,9 +120,10 @@ export async function orchestrate(question: string, history: ConversationTurn[])
       if (call.function.name === "forecast_demand") {
         const args = forecastDemandArgsSchema.parse(rawArgs);
         const result = await runForecastDemand(args);
+        const chart = selectChartForForecast(result.points);
         return {
-          answer: composeForecastAnswer(args, result),
-          chart: selectChartForForecast(result.points),
+          answer: composeForecastAnswer(args, result) + describeChart(chart),
+          chart,
           queryPlan: { tool: "forecast_demand", ...args },
           filters: null,
           metric: null,
@@ -136,9 +138,10 @@ export async function orchestrate(question: string, history: ConversationTurn[])
       if (call.function.name === "compare_metric") {
         const args = compareMetricArgsSchema.parse(rawArgs);
         const result = await runCompareMetric(args);
+        const chart = selectChartForCompare(result.primaryLabel, result.primary, result.baselineLabel, result.baseline);
         return {
-          answer: composeCompareAnswer(args, result),
-          chart: selectChartForCompare(result.primaryLabel, result.primary, result.baselineLabel, result.baseline),
+          answer: composeCompareAnswer(args, result) + describeChart(chart),
+          chart,
           queryPlan: { tool: "compare_metric", ...args },
           filters: args.filters ?? null,
           metric: args.metric,

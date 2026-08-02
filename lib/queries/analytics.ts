@@ -67,12 +67,15 @@ export async function runQueryAnalytics(args: QueryAnalyticsArgs): Promise<Query
 
   const groupExpr = GROUP_BY_EXPR[args.groupBy];
   const orderExpr = TIME_GROUP_BYS.has(args.groupBy) ? sql`${groupExpr} asc` : sql`${metricExpr} desc`;
+  // 1000 as the no-limit default (not omitting .limit()) sidesteps Drizzle's conditional-
+  // chaining typing — harmless since no groupBy dimension in this dataset exceeds ~9 rows.
   const rows = await db
     .select({ label: sql<string>`${groupExpr}`, value: metricExpr })
     .from(orders)
     .where(where)
     .groupBy(groupExpr)
-    .orderBy(orderExpr);
+    .orderBy(orderExpr)
+    .limit(args.limit ?? 1000);
 
   return {
     metric: args.metric,
