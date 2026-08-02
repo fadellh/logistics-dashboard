@@ -15,16 +15,29 @@ export default async function DashboardPage({
   const baseFilters = dateRange ? { dateRange } : undefined;
   const filterLabel = dateRange ? `${dateRange.from} – ${dateRange.to}` : "All 2025";
 
-  const [total, delivered, delayed, onTimeRate, avgDeliveryTime, volumeOverTime, carrierDelayBreakdown] =
-    await Promise.all([
-      runQueryAnalytics({ metric: "count", filters: baseFilters }),
-      runQueryAnalytics({ metric: "count", filters: { ...baseFilters, status: "delivered" } }),
-      runQueryAnalytics({ metric: "count", filters: { ...baseFilters, status: "delayed" } }),
-      runQueryAnalytics({ metric: "on_time_rate", filters: baseFilters }),
-      runQueryAnalytics({ metric: "avg_delivery_time", filters: baseFilters }),
-      runQueryAnalytics({ metric: "count", groupBy: "week", filters: baseFilters }),
-      runQueryAnalytics({ metric: "delay_rate", groupBy: "carrier", filters: baseFilters }),
-    ]);
+  const [
+    total,
+    delivered,
+    delayed,
+    inTransit,
+    exception,
+    canceled,
+    onTimeRate,
+    avgDeliveryTime,
+    volumeOverTime,
+    carrierDelayBreakdown,
+  ] = await Promise.all([
+    runQueryAnalytics({ metric: "count", filters: baseFilters }),
+    runQueryAnalytics({ metric: "count", filters: { ...baseFilters, status: "delivered" } }),
+    runQueryAnalytics({ metric: "count", filters: { ...baseFilters, status: "delayed" } }),
+    runQueryAnalytics({ metric: "count", filters: { ...baseFilters, status: "in_transit" } }),
+    runQueryAnalytics({ metric: "count", filters: { ...baseFilters, status: "exception" } }),
+    runQueryAnalytics({ metric: "count", filters: { ...baseFilters, status: "canceled" } }),
+    runQueryAnalytics({ metric: "on_time_rate", filters: baseFilters }),
+    runQueryAnalytics({ metric: "avg_delivery_time", filters: baseFilters }),
+    runQueryAnalytics({ metric: "count", groupBy: "week", filters: baseFilters }),
+    runQueryAnalytics({ metric: "delay_rate", groupBy: "carrier", filters: baseFilters }),
+  ]);
 
   return (
     <div className="space-y-8 p-8">
@@ -46,6 +59,9 @@ export default async function DashboardPage({
         <DeliveryStatusChart
           delivered={delivered.rows[0].value}
           delayed={delayed.rows[0].value}
+          inTransit={inTransit.rows[0].value}
+          exception={exception.rows[0].value}
+          canceled={canceled.rows[0].value}
           filterLabel={filterLabel}
         />
       </div>
