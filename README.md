@@ -41,31 +41,25 @@ Two ways to run it in Docker — both use the same multi-stage `Dockerfile` (Nex
 `output: "standalone"`, so the runtime image ships only the traced production
 dependencies, not the full `node_modules`).
 
-**Single container, `DATABASE_URL` points at an external host** (e.g. Neon):
-```bash
-make docker-build
-make docker-run
-```
-Requires a real `DATABASE_URL`/`DEEPSEEK_API_KEY` in `.env`. `DATABASE_URL` must be
-reachable **from inside the container** — a `localhost` value in `.env` will NOT reach
-a Postgres running on your own machine (a container's `localhost` is itself, not your
-host — see "Fully local" below for that case instead). Use `make docker-run`, not a raw
-`docker run --env-file .env` (see the Makefile comment — Docker's `--env-file` doesn't
-strip quotes the way Node's does, so `.env`'s quoted values would break auth/DB
-connection).
-
-**Fully local, no cloud account needed** (Postgres + the app, both in Docker):
+**Recommended — fully local, no cloud account needed** (Postgres + the app, both in
+Docker):
 ```bash
 make compose-up      # starts Postgres and the app (docker-compose.yml)
 make compose-seed    # schema + 400 mock orders, one time
 ```
-Use this option — not the single-container one above — whenever `DATABASE_URL` points at
-a local Postgres: Compose puts both containers on the same network, so the app reaches
-the database by service name (`db:5432`), which is how `docker-compose.yml` sets
-`DATABASE_URL` for the `app` service already — you don't edit `.env` for this path.
-`.env` is only used here for `DEEPSEEK_API_KEY` (still needed — no local substitute for
-the model) and the auth vars; Compose reads `.env` directly (its own `${VAR}`
-interpolation, not `env_file:`).
+`DATABASE_URL` in `.env` is ignored for this path — `docker-compose.yml` points the app
+at its own Postgres container automatically. Just fill in `DEEPSEEK_API_KEY` (still
+needed — no local substitute for the model) and the auth vars.
+
+**Single container, using your own already-running Postgres** (e.g. Neon):
+```bash
+make docker-build
+make docker-run
+```
+`DATABASE_URL` here must be a real, externally-reachable database — Neon works, a
+`localhost` value does not (a container's own "localhost" isn't your machine; use the
+option above for a local database). Use `make docker-run`, not a raw
+`docker run --env-file .env` — see the Makefile comment.
 
 Implementation details (why the image build sets placeholder env values, the env-file
 quoting gotcha, why Compose's own `.env` interpolation is safe where the others aren't)
