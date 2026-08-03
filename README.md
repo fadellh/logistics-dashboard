@@ -18,7 +18,8 @@ recommendation).
 
 ### Local Setup Instructions
 
-**Requirements**: Node 20+, a Neon Postgres database, a DeepSeek API key.
+**Requirements**: Node 20+, a Postgres database (Neon or local — see below), a DeepSeek
+API key.
 
 ```bash
 git clone https://github.com/fadellh/logistics-dashboard
@@ -34,35 +35,40 @@ npm test                    # runs the node:test suites (no DB/.env required)
 A `Makefile` wraps these same commands (`make install`, `make dev`, `make test`, etc.) —
 convenience only, `npm` directly works identically.
 
-### Docker (alternative to local Node)
+### Docker
 
+Two ways to run it in Docker — both use the same multi-stage `Dockerfile` (Next.js
+`output: "standalone"`, so the runtime image ships only the traced production
+dependencies, not the full `node_modules`).
+
+**Single container, bring your own Postgres** (e.g. Neon):
 ```bash
 make docker-build
 make docker-run
 ```
+Requires a real `DATABASE_URL`/`DEEPSEEK_API_KEY` in `.env` — Docker packages the app, not
+the database. Use `make docker-run`, not a raw `docker run --env-file .env` (see the
+Makefile comment — Docker's `--env-file` doesn't strip quotes the way Node's does, so
+`.env`'s quoted values would break auth/DB connection).
 
-Multi-stage build using Next.js's `output: "standalone"` (`next.config.ts`) — the runtime
-image ships only the traced production dependencies, not the full `node_modules`. Still
-requires a real Neon `DATABASE_URL` and `DEEPSEEK_API_KEY` in `.env` — Docker packages the
-app, it doesn't provision the database.
+**Fully local, no cloud account needed** (Postgres + the app, both in Docker):
+```bash
+make compose-up      # starts Postgres and the app (docker-compose.yml)
+make compose-seed    # schema + 400 mock orders, one time
+```
+Still needs a real `DEEPSEEK_API_KEY` in `.env` for Ask AI — there's no local substitute
+for the model itself.
 
-`lib/db/client.ts` and `lib/ai/client.ts` both fail fast at import time if their env var is
-missing, and Next's build step imports every route module (including the dynamic ones) to
-analyze it — so the image build stage sets harmless placeholder values just to satisfy that
-check (see the `Dockerfile` comment); no network call happens at build. Real secrets are
-only read at `docker run`, from `--env-file`.
-
-Use `make docker-run`, not a raw `docker run --env-file .env` — Docker's `--env-file` does
-not strip quotes the way Node's `--env-file`/dotenv does, so `.env`'s quoted values (e.g.
-`DATABASE_URL="postgresql://..."`) would pass through with the literal quote characters
-still attached and fail auth/DB connection. `make docker-run` generates a quote-stripped
-`.env.docker` for the container and deletes it after (gitignored either way).
+Implementation details (why the image build sets placeholder env values, the env-file
+quoting gotcha, why Compose's own `.env` interpolation is safe where the others aren't)
+live as comments in `Dockerfile`/`Makefile`/`docker-compose.yml`, next to the code they
+explain, rather than duplicated here.
 
 ### Environment Variables
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | Neon Postgres connection string (serverless driver, pooling built in) |
+| `DATABASE_URL` | Postgres connection string — standard `postgresql://` wire protocol via `pg`/`drizzle-orm/node-postgres`, so this works against Neon, a local Postgres, or any other Postgres host unchanged. On Vercel, use Neon's pooled ("`-pooler`") connection string, not the direct one — see `lib/db/client.ts`. |
 | `DEEPSEEK_API_KEY` | DeepSeek API key — used via the OpenAI SDK with a custom `baseURL`, so swapping providers (OpenAI/Grok/etc.) is a one-line change in `lib/ai/client.ts` |
 | `ADMIN_PASSWORD` | Owner login password |
 | `GUEST_PASSWORD` | Reviewer login password (see the credential in the Live App link above) |
@@ -84,7 +90,8 @@ is gitignored.
 ### System Overview
 
 **Stack**: Next.js (App Router, TypeScript) as a single monolith deployed to Vercel
-— Postgres via Neon, accessed through Drizzle ORM — DeepSeek (OpenAI-SDK-compatible)
+— Postgres via Neon in production (portable to any Postgres, including fully local —
+see Setup → Docker), accessed through Drizzle ORM — DeepSeek (OpenAI-SDK-compatible)
 for the AI layer — Recharts for charts.
 
 **Code structure** — three explicitly separate layers, matching the spec's literal

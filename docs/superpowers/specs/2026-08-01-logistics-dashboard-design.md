@@ -673,6 +673,41 @@ doc).
     second model judgment call, directly reversing the "answers are templated,
     not a second LLM call" non-negotiable rule for a bonus item, not a
     requirement.
+- **DB driver swapped from `@neondatabase/serverless` (`neon-http`) to
+  `drizzle-orm/node-postgres` (`pg`).** Prompted by "can this run against a local
+  Postgres" — the answer was no, not a config change: `neon()`'s HTTP-only driver
+  sends queries via `fetch()` to a Neon-specific proxy endpoint (confirmed by
+  reading `@neondatabase/serverless`'s type definitions, not assumed), which a
+  plain local Postgres server doesn't expose. `node-postgres` speaks the standard
+  Postgres wire protocol instead, so the same `DATABASE_URL` now works against
+  Neon (still what's deployed in production), a local Postgres, or any other
+  Postgres host — `drizzle.config.ts`'s `dialect: "postgresql"` already made
+  `drizzle-kit push` driver-agnostic; only the runtime client in `lib/db/client.ts`
+  was Neon-specific. Verified against the live production Neon DB before treating
+  the swap as safe (`count` query returned the known 400 total), then re-ran the
+  full 18-case live eval twice (2 unrelated flakes on the first run, both LLM
+  non-determinism in `orchestrate.ts`/`systemPrompt.ts` — untouched by this
+  change — confirmed by an immediate clean 18/18 re-run) before proceeding.
+  Tradeoff noted in `lib/db/client.ts`: on Vercel, `DATABASE_URL` should be
+  Neon's pooled (`-pooler`) connection string, not the direct one — a `Pool` of
+  plain TCP connections opened per serverless cold start can exhaust Postgres's
+  connection limit under concurrent load in a way the HTTP driver never could,
+  a real (if low-probability at this project's traffic) regression the old
+  driver didn't have.
+- **`docker-compose.yml` added**: Postgres + the app, fully local, no Neon
+  account required — the natural completion of the driver swap above (pointless
+  without it). Compose's own `.env` variable interpolation (`${VAR}` in the
+  compose file) was verified separately to strip quotes correctly, unlike
+  `env_file:`/`docker run --env-file` (empirically tested with a throwaway
+  compose file before relying on it, not assumed from the driver-swap fix
+  above) — so the `app` service's secrets are read that way, not via `env_file:`.
+  Schema push + seed against the Compose Postgres run from the host with an
+  explicit `DATABASE_URL` on each command and no `--env-file` involved at all;
+  this was verified safe (not assumed) by first running both commands against
+  an unreachable fake local URL and confirming they failed with `ECONNREFUSED`
+  rather than silently succeeding against the real Neon DB — `seed.ts` does a
+  `DELETE` before re-inserting, so a misdirected run would have briefly emptied
+  the live production table.
 
 ## Env vars
 

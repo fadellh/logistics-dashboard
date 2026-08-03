@@ -1,0 +1,38 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: logistics
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Compose's own ${VAR} interpolation (reading .env from this directory) DOES strip
+      # quotes correctly, unlike `env_file:`/`docker run --env-file` — verified directly,
+      # see the Makefile's docker-run comment for the mechanism that needed a workaround.
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/logistics
+      DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-admin-local}
+      GUEST_PASSWORD: ${GUEST_PASSWORD:-guest-local}
+      SESSION_SECRET: ${SESSION_SECRET:-local-dev-secret-change-me}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:

@@ -7,8 +7,10 @@ actionable reference; the spec doc is the long-form "why".
 
 ## Stack
 
-Next.js (App Router, TS) monolith · Postgres via Neon + Drizzle ORM (`drizzle-kit
-push`, no migration files) · DeepSeek via the `openai` SDK (OpenAI-compatible,
+Next.js (App Router, TS) monolith · Postgres via Neon in production, `drizzle-orm/
+node-postgres` (standard wire protocol, not Neon's HTTP-only serverless driver —
+also runs against a local Postgres, e.g. via `docker-compose.yml`) + Drizzle ORM
+(`drizzle-kit push`, no migration files) · DeepSeek via the `openai` SDK (OpenAI-compatible,
 swap provider by changing `baseURL`/`model` in one place) · Recharts · base-ui ·
 `@number-flow/react` · Sonner · `class-variance-authority`. No zustand, no shadcn/ui
 — see spec doc for why.
@@ -113,7 +115,8 @@ so that's the mandated next step once this spec is approved, not optional toolin
 
 ## Env vars
 
-`DATABASE_URL` (Neon), `DEEPSEEK_API_KEY`. `.env.example` must exist and stay in
+`DATABASE_URL` (Neon in production, any Postgres works), `DEEPSEEK_API_KEY`.
+`.env.example` must exist and stay in
 sync; never commit real values.
 
 ## README requirement (don't forget this)
