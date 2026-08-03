@@ -25,7 +25,7 @@ test("describeFilters includes sku and destinationCity", () => {
 test("composeQueryAnswer restates filter scope for a flat (no groupBy) result", () => {
   const answer = composeQueryAnswer(
     { metric: "delay_rate", filters: { dateRange: { from: "2025-01-01", to: "2025-01-31" } } },
-    { metric: "delay_rate", groupBy: null, rows: [{ label: "current", value: 0.174 }] }
+    { metric: "delay_rate", groupBy: null, rows: [{ label: "current", value: 0.174, n: 50 }] }
   );
   assert.match(answer, /2025-01-01 to 2025-01-31/);
   assert.match(answer, /17\.4%/);
@@ -34,7 +34,14 @@ test("composeQueryAnswer restates filter scope for a flat (no groupBy) result", 
 test("composeQueryAnswer picks the highest row when grouped", () => {
   const answer = composeQueryAnswer(
     { metric: "delay_rate", groupBy: "carrier" },
-    { metric: "delay_rate", groupBy: "carrier", rows: [{ label: "UPS", value: 0.1 }, { label: "DHL", value: 0.3 }] }
+    {
+      metric: "delay_rate",
+      groupBy: "carrier",
+      rows: [
+        { label: "UPS", value: 0.1, n: 20 },
+        { label: "DHL", value: 0.3, n: 20 },
+      ],
+    }
   );
   assert.match(answer, /^DHL has the highest/);
 });
@@ -56,9 +63,9 @@ test("composeQueryAnswer lists all N rows when limit is set, not just the highes
       metric: "on_time_rate",
       groupBy: "carrier",
       rows: [
-        { label: "DPD", value: 1.0 },
-        { label: "DHL", value: 1.0 },
-        { label: "FedEx", value: 0.98 },
+        { label: "DPD", value: 1.0, n: 10 },
+        { label: "DHL", value: 1.0, n: 10 },
+        { label: "FedEx", value: 0.98, n: 10 },
       ],
     }
   );
@@ -74,7 +81,10 @@ test("composeQueryAnswer without limit still reports only the single highest", (
     {
       metric: "on_time_rate",
       groupBy: "carrier",
-      rows: [{ label: "DPD", value: 1.0 }, { label: "DHL", value: 1.0 }],
+      rows: [
+        { label: "DPD", value: 1.0, n: 10 },
+        { label: "DHL", value: 1.0, n: 10 },
+      ],
     }
   );
   assert.match(answer, /^DPD has the highest/);
@@ -87,7 +97,7 @@ test("composeQueryAnswer with limit=1 also uses the natural single-result phrasi
     {
       metric: "on_time_rate",
       groupBy: "carrier",
-      rows: [{ label: "DPD", value: 1.0 }],
+      rows: [{ label: "DPD", value: 1.0, n: 10 }],
     }
   );
   assert.match(answer, /^DPD has the highest/);
@@ -117,7 +127,16 @@ test("composeForecastAnswer includes target, projection, and methodology", () =>
 test("composeCompareAnswer says 'in line with' when primary and baseline display equal", () => {
   const answer = composeCompareAnswer(
     { metric: "delay_rate", compareTo: "overall_average" },
-    { metric: "delay_rate", primary: 0.174, baseline: 0.174, delta: 0, primaryLabel: "current", baselineLabel: "overall average" }
+    {
+      metric: "delay_rate",
+      primary: 0.174,
+      baseline: 0.174,
+      delta: 0,
+      primaryLabel: "current",
+      baselineLabel: "overall average",
+      primaryN: 50,
+      baselineN: 400,
+    }
   );
   assert.match(answer, /in line with 17\.4%/);
   assert.doesNotMatch(answer, /up from 17\.4%/);
@@ -127,7 +146,16 @@ test("composeCompareAnswer says 'in line with' when primary and baseline display
 test("composeCompareAnswer says 'up from' when primary is higher", () => {
   const answer = composeCompareAnswer(
     { metric: "delay_rate", compareTo: "overall_average" },
-    { metric: "delay_rate", primary: 0.174, baseline: 0.153, delta: 0.021, primaryLabel: "current", baselineLabel: "overall average" }
+    {
+      metric: "delay_rate",
+      primary: 0.174,
+      baseline: 0.153,
+      delta: 0.021,
+      primaryLabel: "current",
+      baselineLabel: "overall average",
+      primaryN: 50,
+      baselineN: 400,
+    }
   );
   assert.match(answer, /up from 15\.3%/);
 });
@@ -135,7 +163,16 @@ test("composeCompareAnswer says 'up from' when primary is higher", () => {
 test("composeCompareAnswer says 'down from' when primary is lower", () => {
   const answer = composeCompareAnswer(
     { metric: "delay_rate", compareTo: "overall_average" },
-    { metric: "delay_rate", primary: 0.1, baseline: 0.153, delta: -0.053, primaryLabel: "current", baselineLabel: "overall average" }
+    {
+      metric: "delay_rate",
+      primary: 0.1,
+      baseline: 0.153,
+      delta: -0.053,
+      primaryLabel: "current",
+      baselineLabel: "overall average",
+      primaryN: 50,
+      baselineN: 400,
+    }
   );
   assert.match(answer, /down from 15\.3%/);
 });
@@ -143,7 +180,16 @@ test("composeCompareAnswer says 'down from' when primary is lower", () => {
 test("composeCompareAnswer includes a rationale clause and restates filter scope", () => {
   const answer = composeCompareAnswer(
     { metric: "delay_rate", compareTo: "overall_average", filters: { carrier: "DHL" } },
-    { metric: "delay_rate", primary: 0.2, baseline: 0.153, delta: 0.047, primaryLabel: "current", baselineLabel: "overall average" }
+    {
+      metric: "delay_rate",
+      primary: 0.2,
+      baseline: 0.153,
+      delta: 0.047,
+      primaryLabel: "current",
+      baselineLabel: "overall average",
+      primaryN: 20,
+      baselineN: 400,
+    }
   );
   assert.match(answer, /DHL/);
   assert.match(answer, /I compared/);

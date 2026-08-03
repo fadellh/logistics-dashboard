@@ -8,6 +8,8 @@ export type CompareMetricResult = {
   delta: number;
   primaryLabel: string;
   baselineLabel: string;
+  primaryN: number;
+  baselineN: number;
 };
 
 export class CompareRequiresDateRangeError extends Error {
@@ -31,6 +33,7 @@ function shiftDateRangeBack(range: { from: string; to: string }): { from: string
 export async function runCompareMetric(args: CompareMetricArgs): Promise<CompareMetricResult> {
   const primaryResult = await runQueryAnalytics({ metric: args.metric, filters: args.filters });
   const primary = primaryResult.rows[0]?.value ?? 0;
+  const primaryN = primaryResult.rows[0]?.n ?? 0;
 
   let baselineFilters = args.filters;
   let baselineLabel: string;
@@ -52,6 +55,7 @@ export async function runCompareMetric(args: CompareMetricArgs): Promise<Compare
 
   const baselineResult = await runQueryAnalytics({ metric: args.metric, filters: baselineFilters });
   const baseline = baselineResult.rows[0]?.value ?? 0;
+  const baselineN = baselineResult.rows[0]?.n ?? 0;
 
   return {
     metric: args.metric,
@@ -60,5 +64,7 @@ export async function runCompareMetric(args: CompareMetricArgs): Promise<Compare
     delta: primary - baseline,
     primaryLabel: "current",
     baselineLabel,
+    primaryN,
+    baselineN,
   };
 }

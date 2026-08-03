@@ -147,8 +147,8 @@ export async function orchestrate(question: string, history: ConversationTurn[])
           metric: args.metric,
           groupBy: null,
           table: [
-            { label: result.primaryLabel, value: result.primary },
-            { label: result.baselineLabel, value: result.baseline },
+            { label: result.primaryLabel, value: result.primary, n: result.primaryN },
+            { label: result.baselineLabel, value: result.baseline, n: result.baselineN },
           ],
         };
       }

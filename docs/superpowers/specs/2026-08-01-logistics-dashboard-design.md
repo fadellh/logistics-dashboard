@@ -633,6 +633,46 @@ doc).
   also declined — the spec requires only "at least two charts," not a granularity
   switch, and the Ask AI side already supports arbitrary granularity through
   natural language ("by week", "by month") via `query_analytics`'s `groupBy`.
+- **Bonus items added: Docker setup, and "advanced explainability."** Both were
+  explicitly listed above as "out of scope" (§"Explicitly out of scope") since the
+  spec marks them optional bonus (§14); reversed after the core requirements were
+  fully verified and time remained before the deadline.
+  - **Docker**: `next.config.ts` gained `output: "standalone"`; a multi-stage
+    `Dockerfile` (deps → build → runner, `node:20-alpine`) plus `.dockerignore`.
+    Neither `/` nor `/ask` are statically prerendered (both read `searchParams`,
+    a Next.js dynamic API), so `npm run build` needs no DB/API secrets — those are
+    supplied at `docker run --env-file .env`, never baked into the image. A
+    `Makefile` wraps the existing npm scripts plus `docker-build`/`docker-run` —
+    convenience only, not a new capability.
+  - **Advanced explainability**: checked `~/fadel/ai-engineering-from-scratch`
+    first per CLAUDE.md's rule. First search landed on
+    `phases/14-agent-engineering/24-agent-observability-platforms/docs/en.md`
+    (Langfuse/Phoenix/Opik) — wrong audience (developer-facing tracing/eval
+    tooling, not end-user-facing explainability) and explicitly corrected as such
+    rather than stretched to fit. The actual match:
+    `phases/19-capstone-projects/06-devops-troubleshooting-agent/docs/en.md`, a
+    worked capstone with an explicit scored "Explainability" criterion (line 110:
+    "Every hypothesis has graph paths and telemetry citations") and a concrete
+    format (line 96: `citations: deploy.yaml (rev 42), prometheus errorRate, loki
+    500 stack`). Translated to this project: "telemetry citation" ≈ the query
+    plan + underlying data table (already shipped, satisfies the spec's literal
+    §4.4 baseline); "graph-path visualization" ≈ new — a reasoning-path chip strip
+    (question → tool selected → filters → what was measured → answer) rendered in
+    `ExplainabilityPanel.tsx`, reusing data already on `AskResult` (no new backend
+    call); the "citation count" component of the capstone's evidence score ≈ new —
+    `analytics.ts` gained `METRIC_SAMPLE_EXPR`, the same per-metric denominator
+    each `METRIC_EXPR` already divides by (e.g. `count(*) filter (where status in
+    ('delivered','delayed'))` for the rate metrics), exposed as `n` per row and
+    rendered as a "Based on N orders" column with a small-sample (`n < 5`) warning
+    in `DataTable.tsx` — the same single-digit threshold CLAUDE.md's own
+    small-sample guardrail already names, now surfaced visually instead of only
+    guarded against in answer text. **Explicitly not adopted**: the capstone's
+    "ranked top-3 hypotheses + human approval" pattern — this project's tool
+    routing is deliberately one atomic tool call per question with a templated
+    (non-LLM) answer; presenting multiple ranked candidate answers would mean a
+    second model judgment call, directly reversing the "answers are templated,
+    not a second LLM call" non-negotiable rule for a bonus item, not a
+    requirement.
 
 ## Env vars
 

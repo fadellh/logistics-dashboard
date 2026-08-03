@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.env
+.env*.local
+.env.docker
+.agents
+.claude
+.superpowers
+.remember
+my-learn-as-ai-engineer.md
+*.tsbuildinfo
+*.log
+npm-debug.log*

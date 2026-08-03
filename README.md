@@ -31,6 +31,33 @@ npm run dev                 # http://localhost:3000 — redirects to /login
 npm test                    # runs the node:test suites (no DB/.env required)
 ```
 
+A `Makefile` wraps these same commands (`make install`, `make dev`, `make test`, etc.) —
+convenience only, `npm` directly works identically.
+
+### Docker (alternative to local Node)
+
+```bash
+make docker-build
+make docker-run
+```
+
+Multi-stage build using Next.js's `output: "standalone"` (`next.config.ts`) — the runtime
+image ships only the traced production dependencies, not the full `node_modules`. Still
+requires a real Neon `DATABASE_URL` and `DEEPSEEK_API_KEY` in `.env` — Docker packages the
+app, it doesn't provision the database.
+
+`lib/db/client.ts` and `lib/ai/client.ts` both fail fast at import time if their env var is
+missing, and Next's build step imports every route module (including the dynamic ones) to
+analyze it — so the image build stage sets harmless placeholder values just to satisfy that
+check (see the `Dockerfile` comment); no network call happens at build. Real secrets are
+only read at `docker run`, from `--env-file`.
+
+Use `make docker-run`, not a raw `docker run --env-file .env` — Docker's `--env-file` does
+not strip quotes the way Node's `--env-file`/dotenv does, so `.env`'s quoted values (e.g.
+`DATABASE_URL="postgresql://..."`) would pass through with the literal quote characters
+still attached and fail auth/DB connection. `make docker-run` generates a quote-stripped
+`.env.docker` for the container and deletes it after (gitignored either way).
+
 ### Environment Variables
 
 | Variable | Description |
@@ -139,6 +166,14 @@ UI shows this in layers: the answer first, a plain-language "how I found this"
 summary second, and the raw tool-call JSON third (collapsed, for technical
 reviewers) — a business user is never shown `metric: delay_rate` as their first
 encounter with the answer.
+
+The "how I found this" layer also renders a **reasoning-path** strip (question → tool
+selected → filters → what was measured → answer) and, on any grouped/compared result, a
+**sample-size column** next to each value with a small-sample warning below 5 orders. Both
+are additions beyond the spec's baseline explainability requirement, modeled on how a
+citations-based agent (e.g. a root-cause troubleshooting agent scoring "explainability" as
+"every hypothesis has graph paths and telemetry citations") ties every claim to a visible
+evidence trail rather than a bare number.
 
 ### How Tools Are Selected
 

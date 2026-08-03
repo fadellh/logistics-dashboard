@@ -3,7 +3,7 @@ import { db } from "../db/client";
 import { orders } from "../db/schema";
 import type { QueryAnalyticsArgs, Metric, GroupBy } from "./schemas";
 
-export type QueryResultRow = { label: string; value: number };
+export type QueryResultRow = { label: string; value: number; n: number };
 export type QueryAnalyticsResult = {
   metric: Metric;
   groupBy: GroupBy | null;
@@ -38,6 +38,17 @@ const METRIC_EXPR: Record<Metric, SQL<number>> = {
     / nullif(count(*) filter (where ${orders.status} in ('delivered','delayed')), 0), 0)`,
 };
 
+// Sample size backing each metric's value — the same denominator each METRIC_EXPR already
+// divides by, exposed to the UI so a thin bucket (e.g. 3 orders) reads as thin instead of
+// looking as solid as a bucket of 300. Mirrors CLAUDE.md's own small-sample guardrail.
+const METRIC_SAMPLE_EXPR: Record<Metric, SQL<number>> = {
+  count: sql<number>`count(*)`,
+  sum_order_value: sql<number>`count(*)`,
+  avg_delivery_time: sql<number>`count(${orders.deliveryDate})`,
+  on_time_rate: sql<number>`count(*) filter (where ${orders.status} in ('delivered','delayed'))`,
+  delay_rate: sql<number>`count(*) filter (where ${orders.status} in ('delivered','delayed'))`,
+};
+
 function buildFilters(args: QueryAnalyticsArgs): SQL | undefined {
   const conds: SQL[] = [];
   const f = args.filters;
@@ -56,14 +67,15 @@ function buildFilters(args: QueryAnalyticsArgs): SQL | undefined {
 
 export async function runQueryAnalytics(args: QueryAnalyticsArgs): Promise<QueryAnalyticsResult> {
   const metricExpr = METRIC_EXPR[args.metric];
+  const sampleExpr = METRIC_SAMPLE_EXPR[args.metric];
   const where = buildFilters(args);
 
   if (!args.groupBy) {
-    const rows = await db.select({ value: metricExpr }).from(orders).where(where);
+    const rows = await db.select({ value: metricExpr, n: sampleExpr }).from(orders).where(where);
     return {
       metric: args.metric,
       groupBy: null,
-      rows: [{ label: "total", value: Number(rows[0]?.value ?? 0) }],
+      rows: [{ label: "total", value: Number(rows[0]?.value ?? 0), n: Number(rows[0]?.n ?? 0) }],
     };
   }
 
@@ -72,7 +84,7 @@ export async function runQueryAnalytics(args: QueryAnalyticsArgs): Promise<Query
   // 1000 as the no-limit default (not omitting .limit()) sidesteps Drizzle's conditional-
   // chaining typing — harmless since no groupBy dimension in this dataset exceeds ~9 rows.
   const rows = await db
-    .select({ label: sql<string>`${groupExpr}`, value: metricExpr })
+    .select({ label: sql<string>`${groupExpr}`, value: metricExpr, n: sampleExpr })
     .from(orders)
     .where(where)
     .groupBy(groupExpr)
@@ -82,6 +94,6 @@ export async function runQueryAnalytics(args: QueryAnalyticsArgs): Promise<Query
   return {
     metric: args.metric,
     groupBy: args.groupBy,
-    rows: rows.map((r) => ({ label: r.label, value: Number(r.value) })),
+    rows: rows.map((r) => ({ label: r.label, value: Number(r.value), n: Number(r.n) })),
   };
 }
