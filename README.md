@@ -30,6 +30,7 @@ npx drizzle-kit push       # create the orders table from lib/db/schema.ts
 npm run seed                # load mock_logistics_data.csv into the DB
 npm run dev                 # http://localhost:3000 — redirects to /login
 npm test                    # runs the node:test suites (no DB/.env required)
+npm run eval:ai              # optional: 18-case live-model eval, costs a little (real API calls)
 ```
 
 A `Makefile` wraps these same commands (`make install`, `make dev`, `make test`, etc.) —
@@ -70,7 +71,7 @@ explain, rather than duplicated here.
 
 | Variable | Description |
 |---|---|
-| `DATABASE_URL` | Postgres connection string — standard `postgresql://` wire protocol via `pg`/`drizzle-orm/node-postgres`, so this works against Neon, a local Postgres, or any other Postgres host unchanged. On Vercel, use Neon's pooled ("`-pooler`") connection string, not the direct one — see `lib/db/client.ts`. |
+| `DATABASE_URL` | Postgres connection string — standard `postgresql://` wire protocol via `pg`/`drizzle-orm/node-postgres`, so the same code works against Neon, a local Postgres, or any other Postgres host. On Vercel, use Neon's pooled ("`-pooler`") connection string, not the direct one — see `lib/db/client.ts`. |
 | `DEEPSEEK_API_KEY` | DeepSeek API key — used via the OpenAI SDK with a custom `baseURL`, so swapping providers (OpenAI/Grok/etc.) is a one-line change in `lib/ai/client.ts` |
 | `ADMIN_PASSWORD` | Owner login password |
 | `GUEST_PASSWORD` | Reviewer login password (see the credential in the Live App link above) |
@@ -276,8 +277,10 @@ runaway loop.
 - Query history / caching (listed as optional bonus items in the spec).
 - Dark-mode toggle — the color tokens are already dark-mode-ready (validated
   against a dark surface), the toggle UI itself just isn't built.
-- Automated tests beyond the two `node:test` checks on the forecasting math and the
-  query-argument allowlist.
+- CI wiring for the existing test suite (`npm test`, 31 `node:test` cases) and the
+  golden eval (`npm run eval:ai`) — both currently run manually, pre-submission only.
+- Browser/e2e test automation (Playwright or similar) — current coverage is unit-level
+  (`lib/`) plus a manual click-through, no automated UI regression check.
 
 ## AI Usage Disclosure
 
