@@ -37,6 +37,12 @@ export const queryAnalyticsArgsSchema = z.object({
   // Only meaningful together with groupBy — "top 3 carriers", "best 5 SKUs". Capped at
   // 20 since the dataset never has more than 9 distinct values for any groupable dimension.
   limit: z.number().int().min(1).max(20).optional(),
+  // Set when the user named 2+ specific values of the same dimension to compare (e.g. two
+  // SKUs) but this call can only filter to one of them — the other named value(s), so the
+  // templated answer can disclose the gap instead of silently answering as if only one
+  // value was ever asked about. Answers are templated (never phrased by the model), so
+  // this is the only way that disclosure can reach the user.
+  alsoAskedAbout: z.array(z.string()).max(5).optional(),
 });
 
 export const forecastDemandArgsSchema = z

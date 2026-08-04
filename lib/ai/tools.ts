@@ -52,6 +52,13 @@ export const TOOLS: OpenAI.Chat.Completions.ChatCompletionTool[] = [
             description:
               "Optional: return only the top N results by value, e.g. the user asks for 'top 3', 'best 5', 'only 3 results'. Only meaningful together with groupBy — ignored otherwise.",
           },
+          alsoAskedAbout: {
+            type: "array",
+            items: { type: "string" },
+            maxItems: 5,
+            description:
+              "Optional: if the user named 2+ specific values of the same dimension to compare (e.g. 'what's different between SKU A and SKU B') but you can only filter to one per call, put the other named value(s) here so the answer discloses that you could only check one — never omit this and answer as if only one value was ever asked about.",
+          },
         },
         required: ["metric"],
       },

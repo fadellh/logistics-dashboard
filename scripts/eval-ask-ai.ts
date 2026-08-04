@@ -4,7 +4,7 @@
 // the live DeepSeek model against the real database — it costs a little money and isn't
 // fully deterministic, so it's a manual pre-submission check, not a CI gate.
 //
-// ~18 hand-picked cases: one happy path per tool (mirroring the spec's own example
+// ~19 hand-picked cases: one happy path per tool (mirroring the spec's own example
 // questions), plus one case per real production bug found and fixed during this
 // project (see my-learn-as-ai-engineer.md sections 10-12 for the reasoning and the
 // citation to phases/14-agent-engineering/30-eval-driven-agent-development/docs/en.md
@@ -185,6 +185,21 @@ const CASES: EvalCase[] = [
     check: (r) => {
       const filters = queryPlanField(r, "filters") as { status?: string } | undefined;
       return filters?.status === "delivered" ? null : `expected filters.status="delivered", got ${JSON.stringify(filters)}`;
+    },
+  },
+  {
+    name: "regression: comparing two named SKUs must disclose it can only check one, not silently drop the second",
+    // Real bug: "what's different between SKU A and SKU B" filtered to only SKU A and
+    // answered as if the comparison was fully done — SKU B was never queried or mentioned,
+    // with no acknowledgment of the gap (an Omission sub-intention error, per the same
+    // LLM Agent Hallucinations Survey cited for the chart-hallucination regression above).
+    turns: ["What is different between CRAYON-0017 and CRAYON-0008?"],
+    check: (r) => {
+      const also = queryPlanField(r, "alsoAskedAbout");
+      const disclosesGap = /only look up one|ask me about|CRAYON-0008/i.test(r.answer);
+      return Array.isArray(also) && also.length > 0 && disclosesGap
+        ? null
+        : `expected alsoAskedAbout to name the dropped SKU and the answer to disclose it, got alsoAskedAbout=${JSON.stringify(also)}, answer="${r.answer}"`;
     },
   },
 ];

@@ -104,6 +104,27 @@ test("composeQueryAnswer with limit=1 also uses the natural single-result phrasi
   assert.doesNotMatch(answer, /Top 1/);
 });
 
+// Regression test for a real production bug: "what's different between SKU A and SKU B"
+// filtered to only SKU A and answered as if the comparison was fully done, with no
+// acknowledgment that SKU B was never checked (an Omission sub-intention error).
+test("composeQueryAnswer discloses alsoAskedAbout instead of silently dropping it", () => {
+  const answer = composeQueryAnswer(
+    { metric: "count", filters: { sku: "CRAYON-0017" }, alsoAskedAbout: ["CRAYON-0008"] },
+    { metric: "count", groupBy: null, rows: [{ label: "current", value: 3, n: 3 }] }
+  );
+  assert.match(answer, /CRAYON-0017/);
+  assert.match(answer, /CRAYON-0008/);
+  assert.match(answer, /only look up one/);
+});
+
+test("composeQueryAnswer omits the disclosure sentence when alsoAskedAbout is absent", () => {
+  const answer = composeQueryAnswer(
+    { metric: "count", filters: { sku: "CRAYON-0017" } },
+    { metric: "count", groupBy: null, rows: [{ label: "current", value: 3, n: 3 }] }
+  );
+  assert.doesNotMatch(answer, /only look up one/);
+});
+
 test("composeForecastAnswer includes target, projection, and methodology", () => {
   const answer = composeForecastAnswer(
     { sku: "PAPER-0197", horizonMonths: 3 },

@@ -22,11 +22,21 @@ export function describeFilters(filters?: Filters): string {
   return parts.length ? ` (${parts.join(", ")})` : "";
 }
 
+// Regression: asked to compare two named SKUs, the model could only filter to one of
+// them, and the templated answer had no way to say so — it read as if the question was
+// fully answered. This surfaces the gap using the model's own alsoAskedAbout arg, since
+// answers are templated and the model cannot phrase this disclosure itself.
+function describeAlsoAskedAbout(also?: string[]): string {
+  if (!also || also.length === 0) return "";
+  return ` I can only look up one value per question — ask me about ${also.join(" or ")} next if you'd like that too.`;
+}
+
 export function composeQueryAnswer(args: QueryAnalyticsArgs, result: QueryAnalyticsResult): string {
   const label = METRIC_LABELS[args.metric];
   const scope = describeFilters(args.filters);
+  const gapNotice = describeAlsoAskedAbout(args.alsoAskedAbout);
   if (!args.groupBy) {
-    return `${label}${scope}: ${formatMetricValue(args.metric, result.rows[0].value)}.`;
+    return `${label}${scope}: ${formatMetricValue(args.metric, result.rows[0].value)}.${gapNotice}`;
   }
   const sorted = [...result.rows].sort((a, b) => b.value - a.value);
   if (sorted.length === 0) return `No data found for ${label.toLowerCase()}${scope} with the given filters.`;
@@ -37,10 +47,10 @@ export function composeQueryAnswer(args: QueryAnalyticsArgs, result: QueryAnalyt
       .slice(0, args.limit)
       .map((r, i) => `${i + 1}. ${r.label} (${formatMetricValue(args.metric, r.value)})`)
       .join(", ");
-    return `Top ${Math.min(args.limit, sorted.length)} by ${label.toLowerCase()}${scope}: ${list}.`;
+    return `Top ${Math.min(args.limit, sorted.length)} by ${label.toLowerCase()}${scope}: ${list}.${gapNotice}`;
   }
   const top = sorted[0];
-  return `${top.label} has the highest ${label.toLowerCase()}${scope} at ${formatMetricValue(args.metric, top.value)}.`;
+  return `${top.label} has the highest ${label.toLowerCase()}${scope} at ${formatMetricValue(args.metric, top.value)}.${gapNotice}`;
 }
 
 export function composeForecastAnswer(args: ForecastDemandArgs, result: ForecastResult): string {
